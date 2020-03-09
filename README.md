@@ -7,6 +7,7 @@ Master Thesis project on Question Answering
 3. Open connection and type in DTU credentials
 4. Once connected open an ssh tunnel to one of the [DTU GPU clusters](https://itswiki.compute.dtu.dk/index.php/GPU_Cluster "DTU cluster machine - hostname"). Names can be found under Cluster Machines - Hostname. Example: 'ssh themis'.
 5. Enter DTU password again. You are now connected to the DTU cluster.
+6. Activate conda development environment (see step 2 under **First time setup (Break)**)
 
 ## First time setup (Break)
 1. First we need to setup a new conda environment for development. This can be done using the command 'conda create --name $name_of_choosing python=3.6.8'. The Break code is developed on python version 3.6.8. 
