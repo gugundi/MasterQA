@@ -14,3 +14,10 @@ mkdir questions
 cd questions
 wget https://nlp.stanford.edu/data/gqa/questions1.3.zip
 unzip questions1.3.zip
+cd ..
+
+# Get Images
+mkdir images
+cd images
+wget https://nlp.stanford.edu/data/gqa/allImages.zip
+unzip allImages.zip
