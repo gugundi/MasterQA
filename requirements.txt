@@ -1,12 +1,6 @@
 nltk
 ujson
 simplejson
-time
-re
-sys
-multiprocessing
-collections
 torch
 numpy
 h5py
-copy
