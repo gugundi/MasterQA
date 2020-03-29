@@ -1,6 +1,6 @@
 #update conda
 #conda update -n base -c defaults conda
-conda update conda
+#conda update conda
 
 #create envirorment named notebook
 conda create --name notebook python pip
