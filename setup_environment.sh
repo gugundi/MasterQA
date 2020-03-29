@@ -14,7 +14,9 @@ conda activate notebook
 pip install -r requirements.txt
 
 #install jupyter
-conda install -c conda-forge jupyter-lab
+#conda install -c conda-forge jupyterlab
+pip install jupyterlab
+
 
 #install envirorment
 #conda install ipykernel
