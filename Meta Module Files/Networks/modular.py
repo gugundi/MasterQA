@@ -206,6 +206,7 @@ class GA(nn.Module):
 
 		return x
 
+# Small box in Meta Module Figure 5
 class Module(nn.Module):
 	def __init__(self, hidden_size, head_num, ff_size, dropout, hidden_size_head):
 		super(Module, self).__init__()
@@ -220,7 +221,7 @@ class Module(nn.Module):
 		enc_output = enc_output * program_masks.unsqueeze(-1)
 		return alpha * enc_output + (1 - alpha) * inputs
 
-
+# Shallow version of Module
 class ShallowModule(nn.Module):
 	def __init__(self, hidden_size, head_num, ff_size, dropout, hidden_size_head, preprocessing=True):
 		super(ShallowModule, self).__init__()
@@ -235,7 +236,7 @@ class ShallowModule(nn.Module):
 		enc_output = enc_output * program_masks.unsqueeze(-1)
 		return enc_output
 
-
+# Deep version of Module
 class DeepModule(nn.Module):
 	def __init__(self, hidden_size, head_num, ff_size, dropout, hidden_size_head, stacking):
 		super(DeepModule, self).__init__()
@@ -364,7 +365,7 @@ class VisualEncoder(nn.Module):
 			vis_feat *= vis_mask.unsqueeze(-1)
 		return vis_feat
 
-
+# Another model - Modular co-attention network
 class MCAN(nn.Module):
 	def __init__(self, vocab_size, answer_size, visual_dim, coordinate_dim, hidden_dim, n_head, n_layers, stacking, dropout):
 		super(MCAN, self).__init__()
