@@ -33,6 +33,7 @@ APIS['relate_inv_name'] = lambda graph, candidates, relation, name: relate(graph
 
 
 def relate(graph, candidates, relation, name, reverse):
+    graph = graph['objects']
     targets = []
     if reverse:
         for cand in candidates:
@@ -55,6 +56,7 @@ APIS['select'] = lambda graph, name: select(graph, name)
 
 
 def select(graph, name):
+    graph = graph['objects']
     targets = []
     for k, v in graph.items():
         if eq(v['name'], name) or name == 'this':
@@ -66,6 +68,7 @@ APIS['relate_attr'] = lambda graph, candidates, relate, name: relate_attr(graph,
 
 
 def relate_attr(graph, candidates, name):
+    graph = graph['objects']
     targets = []
     for cand in candidates:
         own = set(graph[cand]['attributes'])
@@ -79,13 +82,14 @@ def relate_attr(graph, candidates, name):
 APIS['filter'] = lambda graph, candidates, name: filter_attr(graph, candidates, name, None, False)
 APIS['filter_not'] = lambda graph, candidates, name: filter_attr(graph, candidates, name, None, True)
 APIS['filter_h'] = lambda graph, candidates, name: filter_attr(graph, candidates, name, 'h', False)
-#APIS['filter_v'] = lambda graph, candidates, name: filter_attr(graph, candidates, name, 'v', False)
+APIS['filter_v'] = lambda graph, candidates, name: filter_attr(graph, candidates, name, 'v', False)
 
 
 def filter_attr(graph, candidates, name, position, neg):
+    max_x, max_y = graph['width'], graph['height']
+    graph = graph['objects']
     targets = []
     if position:
-        max_x, max_y = graph['0']['w'], graph['0']['h']
         if position == 'h':
             for cand in candidates:
                 if name == 'middle':
@@ -97,7 +101,7 @@ def filter_attr(graph, candidates, name, position, neg):
                         true_pos = 'right'
                     if name == true_pos:
                         targets.append(cand)
-
+        else:
             for cand in candidates:
                 if name == 'middle':
                     targets.append(cand)
@@ -127,19 +131,25 @@ APIS['query_f'] = lambda graph, attr: query(graph, None, 'f', attr)
 
 
 def query(graph, candidates, category, attr):
+    attributes = []
+    if 'location' in graph.keys():
+        attributes.append(graph['location'])
+    if 'weather' in graph.keys():
+        attributes.append(graph['weather'])
+    max_x, max_y = graph['width'], graph['height']
+    max_x, max_y = graph['width'], graph['height']
+    graph = graph['objects']
     if candidates is not None and len(candidates) == 0:
         return None
 
     if category == 'n':
         return graph[candidates[0]]['name']
     elif category == 'h':
-        max_x, max_y = graph['0']['w'], graph['0']['h']
         if graph[candidates[0]]['x'] > max_x // 2:
             return 'right'
         else:
             return 'left'
     elif category == 'v':
-        max_x, max_y = graph['0']['w'], graph['0']['h']
         if graph[candidates[0]]['y'] > max_y // 2:
             return 'bottom'
         else:
@@ -147,7 +157,7 @@ def query(graph, candidates, category, attr):
     elif attr in Constants.ONTOLOGY:
         potential_attr = set(Constants.ONTOLOGY[attr])
         if category == 'f':
-            potential = set(graph['0']['attributes']) & set(potential_attr)
+            potential = set(attributes) & set(potential_attr)
             if potential:
                 return list(potential)[0]
         else:
@@ -170,6 +180,14 @@ APIS['verify_v'] = lambda graph, candidates, val: verify(graph, candidates, val,
 
 
 def verify(graph, candidates, val, category):
+    attributes = []
+    if 'location' in graph.keys():
+        attributes.append(graph['location'])
+    if 'weather' in graph.keys():
+        attributes.append(graph['weather'])
+    max_x, max_y = graph['width'], graph['height']
+    graph = graph['objects']
+    
     if candidates is not None and len(candidates) == 0:
         return False, None
 
@@ -179,12 +197,11 @@ def verify(graph, candidates, val, category):
                 return True, cand
         return False, None
     elif category == 'f':
-        if val in graph['0']['attributes']:
+        if val in attributes:
             return True, '0'
         else:
             return False, None
     elif category == 'h':
-        max_x, max_y = graph['0']['w'], graph['0']['h']
         if graph[candidates[0]]['x'] > max_x // 2:
             pos = 'right'
         else:
@@ -194,7 +211,6 @@ def verify(graph, candidates, val, category):
         else:
             return False, None
     elif category == 'v':
-        max_x, max_y = graph['0']['w'], graph['0']['h']
         if graph[candidates[0]]['y'] > max_y // 2:
             pos = 'bottom'
         else:
@@ -211,6 +227,7 @@ APIS['verify_rel_inv'] = lambda graph, candidates, relation, name: verify_relati
 
 
 def verify_relation(graph, candidates, relation, name, reverse):
+    graph = graph['objects']
     if len(candidates) == 0:
         return False, None
 
@@ -241,6 +258,12 @@ APIS['choose_attr'] = lambda graph, candidates, attr, attr1, attr2: choose(graph
 
 
 def choose(graph, candidates, val1, val2, category):
+    attributes = []
+    if 'location' in graph.keys():
+        attributes.append(graph['location'])
+    if 'weather' in graph.keys():
+        attributes.append(graph['weather'])
+    graph = graph['objects']
     if candidates is not None and len(candidates) == 0:
         return None
 
@@ -253,9 +276,9 @@ def choose(graph, candidates, val1, val2, category):
 
         return None
     elif category == 'f':
-        if val1 in graph['0']['attributes']:
+        if val1 in attributes:
             return val1
-        elif val2 in graph['0']['attributes']:
+        elif val2 in attributes:
             return val2
 
         return None
@@ -274,17 +297,17 @@ APIS['choose_v'] = lambda graph, candidates, position1, position2: choose_pos(gr
 
 
 def choose_pos(graph, candidates, category):
+    max_x, max_y = graph['width'], graph['height']
+    graph = graph['objects']
     if len(candidates) == 0:
         return None
 
     if category == 'h':
-        max_x, max_y = graph['0']['w'], graph['0']['h']
         if graph[candidates[0]]['x'] > max_x // 2:
             return 'right'
         else:
             return 'left'
     elif category == 'v':
-        max_x, max_y = graph['0']['w'], graph['0']['h']
         if graph[candidates[0]]['y'] > max_y // 2:
             return 'bottom'
         else:
@@ -299,6 +322,7 @@ APIS['choose_rel_inv'] = lambda graph, candidates, name, relation1, relation2: c
 
 
 def choose_rel(graph, candidates, name, relation1, relation2, reverse):
+    graph = graph['objects']
     if len(candidates) == 0:
         return None
 
@@ -346,6 +370,7 @@ APIS['same'] = lambda graph, candidates: compare(graph, candidates, 'same')
 
 
 def compare(graph, candidates, category):
+    graph = graph['objects']
     if len(candidates) < 2:
         return None
 
@@ -378,6 +403,7 @@ APIS['common'] = lambda graph, candidate1, candidate2: common(graph, candidate1,
 
 
 def common(graph, candidate1, candidate2):
+    graph = graph['objects']
     if len(candidate1) == 0 or len(candidate2) == 0:
         return None
 
@@ -398,11 +424,16 @@ def common(graph, candidate1, candidate2):
 
 APIS['same_attr'] = lambda graph, candidate1, candidate2, attr: compare_color(
     graph, attr, candidate1, candidate2, 'same')
+APIS['same_color'] = lambda graph, candidate1, candidate2: compare_color(
+    graph, 'color', candidate1, candidate2, 'same')
 APIS['different_attr'] = lambda graph, candidate1, candidate2, attr: compare_color(
     graph, attr, candidate1, candidate2, 'different')
+APIS['different_color'] = lambda graph, candidate1, candidate2: compare_color(
+    graph, 'color', candidate1, candidate2, 'different')
 
 
 def compare_color(graph, attr, candidate1, candidate2, category):
+    graph = graph['objects']
     if len(candidate1) == 0 or len(candidate2) == 0:
         return None
 
