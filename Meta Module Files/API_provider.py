@@ -26,10 +26,10 @@ def eq(graph_entity, query, value=False):
 
 
 APIS = {}
-APIS['relate'] = lambda graph, candidates, relation: relate(graph, candidates, relation, None, False)
-APIS['relate_inv'] = lambda graph, candidates, relation: relate(graph, candidates, relation, None, True)
-APIS['relate_name'] = lambda graph, candidates, relation, name: relate(graph, candidates, relation, name, False)
-APIS['relate_inv_name'] = lambda graph, candidates, relation, name: relate(graph, candidates, relation, name, True)
+APIS['relate'] = lambda graph, *candidates: relate(graph, list(candidates)[0], list(candidates)[-1], None, False)
+APIS['relate_inv'] = lambda graph, *candidates: relate(graph, list(candidates)[0], list(candidates)[-1], None, True)
+APIS['relate_name'] = lambda graph, *candidates: relate(graph, list(candidates)[0], list(candidates)[-2], list(candidates)[-1], False)
+APIS['relate_inv_name'] = lambda graph, *candidates: relate(graph, list(candidates)[0], list(candidates)[-2], list(candidates)[-1], True)
 
 
 def relate(graph, candidates, relation, name, reverse):
@@ -365,11 +365,12 @@ def binary(candidate1, candidate2, logic):
         return candidate1 and candidate2, None
 
 
-APIS['different'] = lambda graph, candidates: compare(graph, candidates, 'different')
-APIS['same'] = lambda graph, candidates: compare(graph, candidates, 'same')
+APIS['different'] = lambda graph, *candidates: compare(graph, list(candidates)[0], 'different')
+APIS['same'] = lambda graph, *candidates: compare(graph, list(candidates)[0], 'same')
 
 
 def compare(graph, candidates, category):
+    print(candidates)
     graph = graph['objects']
     if len(candidates) < 2:
         return None
