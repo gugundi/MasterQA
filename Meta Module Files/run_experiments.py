@@ -75,7 +75,7 @@ def parse_opt():
     parser.add_argument('--dropout', type=float, default=0.1, help="whether to train or test the model")
     parser.add_argument('--distribution', default=False, action='store_true', help="whether to train or test the model")
     parser.add_argument('--load_from', type=str, default="", help="whether to train or test the model")
-    parser.add_argument('--output', type=str, default="models", help="whether to train or test the model")
+    parser.add_argument('--output', type=str, default="/nobackup/s144454/models", help="whether to train or test the model")
     parser.add_argument('--length', type=int, default=9, help="whether to train or test the model")
     parser.add_argument('--id', type=str, default="default", help="whether to train or test the model")
     parser.add_argument('--groundtruth', default=False, action="store_true", help="whether to train or test the model")
