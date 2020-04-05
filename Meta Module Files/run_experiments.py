@@ -253,7 +253,7 @@ if __name__ == "__main__":
         else:
             train_split = 'train_balanced'
             print("using the generated programs for training")
-        testdev_split = 'testdev_pred'
+        testdev_split = 'testdev_balanced'
 
         if args.do_finetune:
             if args.single:
