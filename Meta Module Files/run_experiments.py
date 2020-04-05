@@ -248,10 +248,10 @@ if __name__ == "__main__":
 
     if args.do_train or args.do_train_all or args.do_finetune:
         if args.do_train_all:
-            train_split = 'trainval_all_fully'
+            train_split = 'train_all'
             print("using the all programs for bootstrapping")
         else:
-            train_split = 'trainval_unbiased_fully'
+            train_split = 'train_balanced'
             print("using the generated programs for training")
         testdev_split = 'testdev_pred'
 
