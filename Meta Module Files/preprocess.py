@@ -323,9 +323,9 @@ def create_inputs(splits, output):
         #    with open('questions/{}_programs_pred.json'.format(split)) as f:
         #        data = json.load(f)
         # else:
-        with open('questions/{}_programs.json'.format(split)) as f:
+        with open('../../processed/questions/{}_programs.json'.format(split)) as f:
             data = json.load(f)
-            print("loading {}".format('questions/{}_programs.json'.format(split)))
+            print("loading {}".format('../../processed/questions/{}_programs.json'.format(split)))
 
         count = 0
         for idx, entry in enumerate(data):
@@ -448,60 +448,60 @@ arg = sys.argv[1]
 if arg == 'trainval_all':
     raw_data = {}
     start_time = time.time()
-    with open('../gqa-questions/train_all_questions/train_all_questions_0.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_0.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_1.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_1.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_2.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_2.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_3.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_3.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_4.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_4.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_5.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_5.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_6.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_6.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_7.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_7.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_8.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_8.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/train_all_questions/train_all_questions_9.json') as f:
+    with open('../../dataset/questions/train_all_questions/train_all_questions_9.json') as f:
         raw_data.update(json.load(f))
-    with open('../gqa-questions/val_all_questions.json') as f:
+    with open('../../dataset/questions/val_all_questions.json') as f:
         raw_data.update(json.load(f))
-    preprocess(raw_data, 'questions/trainval_all_programs.json')
+    preprocess(raw_data, '../../processed/questions/trainval_all_programs.json')
 
 elif arg == 'create_balanced_programs':
-    with open('questions/original/train_balanced_questions.json') as f:
+    with open('../../dataset/questions/train_balanced_questions.json') as f:
         raw_data = json.load(f)
-    with open('questions/original/val_balanced_questions.json') as f:
+    with open('../../dataset/questions/val_balanced_questions.json') as f:
         raw_data.update(json.load(f))
     preprocess(raw_data, 'questions/trainval_balanced_programs.json')
     with open('questions/original/testdev_balanced_questions.json') as f:
         raw_dev_data = json.load(f)
-    preprocess(raw_dev_data, 'questions/original/testdev_balanced_programs.json')
+    preprocess(raw_dev_data, '../../dataset/questions/testdev_balanced_programs.json')
 
 elif arg == 'create_all_inputs':
-    create_inputs(['trainval_all_fully'], 'questions/trainval_all_fully_inputs.json')
+    create_inputs(['trainval_all_fully'], '../../processed/questions/trainval_all_fully_inputs.json')
 
 elif arg == 'create_calibrated_inputs':
-    create_inputs(['trainval_calibrated_fully'], 'questions/trainval_calibrated_fully_inputs.json')
+    create_inputs(['trainval_calibrated_fully'], '../../processed/questions/trainval_calibrated_fully_inputs.json')
 
 elif arg == 'create_inputs':
     #create_inputs(['trainval_balanced'], 'questions/trainval_balanced_inputs.json')
-    create_inputs(['testdev_balanced'], 'questions/testdev_balanced_inputs.json')
-    create_inputs(['trainval_fully'], 'questions/trainval_fully_inputs.json')
+    create_inputs(['testdev_balanced'], '../../processed/questions/testdev_balanced_inputs.json')
+    create_inputs(['trainval_fully'], '../../processed/questions/trainval_fully_inputs.json')
 
 elif arg == 'create_pred_inputs':
-    create_inputs(['trainval_unbiased_fully'], 'questions/trainval_unbiased_fully_inputs.json')
-    create_inputs(['testdev_pred'], 'questions/testdev_pred_inputs.json')
+    create_inputs(['trainval_unbiased_fully'], '../../processed/questions/trainval_unbiased_fully_inputs.json')
+    create_inputs(['testdev_pred'], '../../processed/questions/testdev_pred_inputs.json')
 
 elif arg == 'submission_inputs':
-    create_inputs(['needed_submission', 'overlapped_submission'], 'questions/submission_inputs.json')
+    create_inputs(['needed_submission', 'overlapped_submission'], '../../processed/questions/submission_inputs.json')
 
 elif arg == 'debug':
-    with open('questions/needed_submission_programs.json') as f:
+    with open('../../processed/questions/needed_submission_programs.json') as f:
         data = json.load(f)
     for entry in data:
         for sub_program in entry[2]:
@@ -523,7 +523,7 @@ elif arg == 'glove_emb':
         print("Done.", len(model), " words loaded!")
         return model
 
-    emb = loadGloveModel('glove/glove.6B.300d.txt')
+    emb = loadGloveModel('../../glove/glove.6B.300d.txt')
 
     def save(inputs, outputs):
         with open(inputs) as f:
