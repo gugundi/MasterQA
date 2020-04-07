@@ -482,11 +482,23 @@ elif arg == 'create_balanced_programs':
         raw_dev_data = json.load(f)
     preprocess(raw_dev_data, '../../dataset/questions/testdev_balanced_programs.json')
 
+elif arg == 'create_test_programs':
+    with open('../../dataset/questions/test_balanced_questions.json') as f:
+        raw_data = json.load(f)
+    preprocess(raw_data, '../../processed/questions/test_balanced_programs.json')
+    with open('../../dataset/questions/test_all_questions.json') as f:
+        raw_dev_data = json.load(f)
+    preprocess(raw_dev_data, '../../dataset/questions/test_all_programs.json')
+
 elif arg == 'create_all_inputs':
     create_inputs(['trainval_all'], '../../processed/questions/trainval_all_inputs.json')
 
 elif arg == 'create_balanced_inputs':
     create_inputs(['trainval_balanced'], '../../processed/questions/trainval_balanced_inputs.json')
+
+elif arg == 'create_test_inputs':
+    create_inputs(['test_balanced'], '../../processed/questions/test_balanced_inputs.json')
+    create_inputs(['test_all'], '../../processed/questions/test_all_inputs.json')
 
 elif arg == 'create_calibrated_inputs':
     create_inputs(['trainval_calibrated_fully'], '../../processed/questions/trainval_calibrated_fully_inputs.json')

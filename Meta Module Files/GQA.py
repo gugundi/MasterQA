@@ -20,14 +20,14 @@ class GQA(Dataset):
             self.forbidden = set(self.forbidden)
         else:
             self.forbidden = set([])
-        
-        with open('questions/{}_inputs.json'.format(self.split), 'r') as f:
+
+        with open('../../processed/questions/{}_inputs.json'.format(self.split), 'r') as f:
             self.data = json.load(f)
         print("loading data from {}".format(
-            'questions/{}_inputs.json'.format(self.split)))
+            '../../processed/questions/{}_inputs.json'.format(self.split)))
 
         if self.split == 'trainval_all_fully':
-            with open('questions/trainval_calibrated_fully_inputs.json') as f:
+            with open('../../processed/questions/trainval_calibrated_fully_inputs.json') as f:
                 self.data += json.load(f)
             print("loading additional data from questions/trainval_calibrated_fully_inputs.json")
 
