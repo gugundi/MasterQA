@@ -483,7 +483,10 @@ elif arg == 'create_balanced_programs':
     preprocess(raw_dev_data, '../../dataset/questions/testdev_balanced_programs.json')
 
 elif arg == 'create_all_inputs':
-    create_inputs(['trainval_all_fully'], '../../processed/questions/trainval_all_fully_inputs.json')
+    create_inputs(['trainval_all'], '../../processed/questions/trainval_all_inputs.json')
+
+elif arg == 'create_balanced_inputs':
+    create_inputs(['trainval_balanced'], '../../processed/questions/trainval_balanced_inputs.json')
 
 elif arg == 'create_calibrated_inputs':
     create_inputs(['trainval_calibrated_fully'], '../../processed/questions/trainval_calibrated_fully_inputs.json')
