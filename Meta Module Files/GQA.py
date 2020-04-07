@@ -20,17 +20,16 @@ class GQA(Dataset):
             self.forbidden = set(self.forbidden)
         else:
             self.forbidden = set([])
-
-        with open('../../processed/{}_programs.json'.format(self.split), 'r') as f:
-            print("loading data from {}".format('../../processed/{}_programs.json'.format(self.split)))
+        
+        with open('questions/{}_inputs.json'.format(self.split), 'r') as f:
             self.data = json.load(f)
+        print("loading data from {}".format(
+            'questions/{}_inputs.json'.format(self.split)))
 
-
-        if self.split == 'trainval_all':
-            with open('../../processed/train_all_programs.json') as f:
-                print("loading additional data from ../../processed/train_all_programs.json")
+        if self.split == 'trainval_all_fully':
+            with open('questions/trainval_calibrated_fully_inputs.json') as f:
                 self.data += json.load(f)
-
+            print("loading additional data from questions/trainval_calibrated_fully_inputs.json")
 
         with open(args['object_info']) as f:
             self.object_info = json.load(f)
@@ -39,7 +38,7 @@ class GQA(Dataset):
         self.data = list(filter(lambda x: x[0] in database, self.data))
         print("there are in total {} instances before validation removal".format(len(self.data)))
 
-        self.data = list(filter(lambda x: x[-1] not in self.forbidden, self.data))
+        self.data = list(filter(lambda x: x[-2] not in self.forbidden, self.data))
         print("there are in total {} instances".format(len(self.data)))
 
         self.vocab = args['vocab']
