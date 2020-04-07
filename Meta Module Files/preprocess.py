@@ -495,6 +495,7 @@ elif arg == 'create_all_inputs':
 
 elif arg == 'create_balanced_inputs':
     create_inputs(['trainval_balanced'], '../../processed/questions/trainval_balanced_inputs.json')
+    create_inputs(['testdev_balanced'], '../../processed/questions/testdev_balanced_inputs.json')
 
 elif arg == 'create_test_inputs':
     create_inputs(['test_balanced'], '../../processed/questions/test_balanced_inputs.json')
