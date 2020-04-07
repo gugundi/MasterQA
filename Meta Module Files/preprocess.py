@@ -477,8 +477,8 @@ elif arg == 'create_balanced_programs':
         raw_data = json.load(f)
     with open('../../dataset/questions/val_balanced_questions.json') as f:
         raw_data.update(json.load(f))
-    preprocess(raw_data, 'questions/trainval_balanced_programs.json')
-    with open('questions/original/testdev_balanced_questions.json') as f:
+    preprocess(raw_data, '../../processed/questions/trainval_balanced_programs.json')
+    with open('../../dataset/questions/testdev_balanced_questions.json') as f:
         raw_dev_data = json.load(f)
     preprocess(raw_dev_data, '../../dataset/questions/testdev_balanced_programs.json')
 
