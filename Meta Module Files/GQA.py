@@ -38,8 +38,8 @@ class GQA(Dataset):
         self.data = list(filter(lambda x: x[0] in database, self.data))
         print("there are in total {} instances before validation removal".format(len(self.data)))
 
-        self.data = list(filter(lambda x: x[-2] not in self.forbidden, self.data))
-        print("there are in total {} instances".format(len(self.data)))
+        #self.data = list(filter(lambda x: x[-2] not in self.forbidden, self.data))
+        #print("there are in total {} instances".format(len(self.data)))
 
         self.vocab = args['vocab']
         self.answer_vocab = args['answer']

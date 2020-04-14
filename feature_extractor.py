@@ -11,6 +11,8 @@ model_stage = 3
 #batch_size = 32
 batch_size = 1
 img_h = img_w = 224
+image_dir = "../dataset/tmp"
+output_dir = "../processed"
 
 def build_model(img_dir, output_h5_file, img_h, img_w, model, model_stage=3,
                 batch_size=64):
@@ -24,7 +26,10 @@ def build_model(img_dir, output_h5_file, img_h, img_w, model, model_stage=3,
         name = 'layer%d' % (i+1)
         layers.append(getattr(cnn, name))
     model = torch.nn.Sequential(*layers)
-    model.cuda()
+    
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model.to(device)
+
     model.eval()
     return model
 
@@ -45,6 +50,8 @@ def run_batch(cur_batch, model):
 
 model = build_model(image_dir, output_dir, img_h, img_w, model_,
                     model_stage=model_stage, batch_size=batch_size)
+
+
 
 img_size = (img_h, img_w)
 feat_dset = None

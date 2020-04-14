@@ -1,0 +1,10 @@
+nltk
+ujson
+simplejson
+torch
+numpy
+h5py
+cython
+opencv-python
+easydict
+Image
