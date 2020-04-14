@@ -26,7 +26,7 @@ def build_model(img_dir, output_h5_file, img_h, img_w, model, model_stage=3,
         name = 'layer%d' % (i+1)
         layers.append(getattr(cnn, name))
     model = torch.nn.Sequential(*layers)
-    
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)
 
@@ -58,6 +58,7 @@ feat_dset = None
 i0 = 0
 cur_batch = []
 paths = []
+input_paths = []
 
 for i, (path, idx) in enumerate(input_paths):
     img = cv2.imread(path)
