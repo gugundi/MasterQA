@@ -20,16 +20,21 @@ class GQA(Dataset):
             self.forbidden = set(self.forbidden)
         else:
             self.forbidden = set([])
-
-        with open('../../processed/questions/{}_inputs.json'.format(self.split), 'r') as f:
-            self.data = json.load(f)
+        
+        files = 'testdev' if self.mode == 'val' else 'train'
+        path = '../Features/{}/'.format(files) 
+        self.files = set([os.path.splitext(filename)[0] for filename in os.listdir(path)])
+        print('Looking at features from ../Features/{}/'.format(files))
+        
         print("loading data from {}".format(
             '../../processed/questions/{}_inputs.json'.format(self.split)))
+        with open('../../processed/questions/{}_inputs.json'.format(self.split), 'r') as f:
+            self.data = json.load(f)
 
         if self.split == 'trainval_all_fully':
+            print("loading additional data from questions/trainval_calibrated_fully_inputs.json")
             with open('../../processed/questions/trainval_calibrated_fully_inputs.json') as f:
                 self.data += json.load(f)
-            print("loading additional data from questions/trainval_calibrated_fully_inputs.json")
 
         with open(args['object_info']) as f:
             self.object_info = json.load(f)
@@ -38,8 +43,8 @@ class GQA(Dataset):
         self.data = list(filter(lambda x: x[0] in database, self.data))
         print("there are in total {} instances before validation removal".format(len(self.data)))
 
-        #self.data = list(filter(lambda x: x[-2] not in self.forbidden, self.data))
-        #print("there are in total {} instances".format(len(self.data)))
+        self.data = list(filter(lambda x: x[-2] not in [self.forbidden], self.data))
+        print("there are in total {} instances".format(len(self.data)))
 
         self.vocab = args['vocab']
         self.answer_vocab = args['answer']
@@ -230,14 +235,18 @@ class GQA_v2(GQA):
 
         vis_mask = np.zeros((self.num_regions, ), 'float32')
         # Prepare Vision Feature
+        if image_id not in self.files:
+            print('Image id: {}'.format(image_id))
         bottom_up = np.load(os.path.join(
-            self.folder, 'gqa_{}.npz'.format(image_id)))
+                self.folder, 'train', '{}.npz'.format(image_id)))
         adaptive_num_regions = min(
-            (bottom_up['conf'] > self.threshold).sum(), self.num_regions)
+            #(bottom_up['conf'] > self.threshold).sum(), self.num_regions)
+            (bottom_up['objects_conf'] > self.threshold).sum(), self.num_regions)
 
         # Cut off the bottom up features
         object_feat = bottom_up['features'][:adaptive_num_regions]
-        bbox_feat = bottom_up['norm_bb'][:adaptive_num_regions]
+        #bbox_feat = bottom_up['norm_bb'][:adaptive_num_regions]
+        bbox_feat = bottom_up['boxes'][:adaptive_num_regions]
         vis_mask[:bbox_feat.shape[0]] = 1.
         # Padding zero
         if object_feat.shape[0] < self.num_regions:
@@ -258,7 +267,12 @@ class GQA_v2(GQA):
             intersect_iou = np.full(
                 (length - 1, num_regions + 1), 0., 'float32')
             for idx in range(length - 1):
+                if not returns:
+                    continue
+                    
                 if isinstance(returns[idx], list):
+                    print('Returns length: {}, length: {}'.format(len(returns), length))
+                    print('Returns: {}'.format(returns[idx]))
                     if returns[idx] == [-1, -1, -1, -1]:
                         intermediate_idx[idx][num_regions] = 1
                     else:
@@ -286,6 +300,9 @@ class GQA_v2(GQA):
         index = length - 1
         # Prepare answer
         answer_id = self.answer_vocab.get(entry[-1], Constants.UNK)
+        
+        #print('Forbidden set size: {}'.format(len(self.forbidden)))
+        
         return question, question_masks, program, program_masks, transition_masks, activate_mask, object_feat, \
             bbox_feat, vis_mask, index, depth, intermediate_idx, answer_id, questionId
 

@@ -2,6 +2,7 @@ import torch
 import torchvision
 import numpy as np
 import cv2
+import os
 
 feature_model = 'resnet101'
 split = 'train'
@@ -11,8 +12,8 @@ model_stage = 3
 #batch_size = 32
 batch_size = 1
 img_h = img_w = 224
-image_dir = "../dataset/tmp"
-output_dir = "../processed"
+image_dir = "../dataset/images/tmp"
+output_dir = "../processed_images/"
 
 def build_model(img_dir, output_h5_file, img_h, img_w, model, model_stage=3,
                 batch_size=64):
@@ -51,14 +52,30 @@ def run_batch(cur_batch, model):
 model = build_model(image_dir, output_dir, img_h, img_w, model_,
                     model_stage=model_stage, batch_size=batch_size)
 
+input_paths = []
+idx_set = set()
 
+for fn in os.listdir(image_dir):
+    if not fn.endswith('.jpg'):
+        continue
+    #idx = int(os.path.splitext(fn)[0].split('_')[-1])
+    idx = os.path.splitext(fn)[0].split('.jpg')[-1]
+    input_paths.append((os.path.join(image_dir, fn), idx))
+    idx_set.add(idx)
+
+#print(input_paths)    
+input_paths.sort(key=lambda x: x[1])
+assert len(idx_set) == len(input_paths)
+#assert min(idx_set) == 0 and max(idx_set) == len(idx_set) - 1
+
+if max_images is not None:
+    input_paths = input_paths[:max_images]
 
 img_size = (img_h, img_w)
 feat_dset = None
 i0 = 0
 cur_batch = []
 paths = []
-input_paths = []
 
 for i, (path, idx) in enumerate(input_paths):
     img = cv2.imread(path)

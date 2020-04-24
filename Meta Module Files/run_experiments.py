@@ -7,6 +7,9 @@ import sys
 import time
 import os
 import copy
+import json
+import random
+from tqdm import tqdm
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from Networks.modular import *
@@ -14,7 +17,6 @@ from GQA import *
 import glob
 import resource
 import itertools
-from collections import Counter
 
 device = torch.device('cuda')
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -37,7 +39,7 @@ def parse_opt():
     parser.add_argument('--do_submission', default=False, action="store_true",
                         help="whether to train or test the model")
     parser.add_argument('--ensemble', default=False, action="store_true", help="whether to train or test the model")
-    parser.add_argument('--data', type=str, default="../../gqa_bottom_up_features/",
+    parser.add_argument('--data', type=str, default="../Features/",
                         help="whether to train or test the model")
     parser.add_argument('--object_info', type=str, default='gqa_objects_merged_info.json',
                         help="whether to train or test the model")
@@ -261,7 +263,31 @@ if __name__ == "__main__":
 
             model.load_state_dict(torch.load(args.load_from))
             print("Loading the bootstrapped model from {}".format(args.load_from))
-
+        
+        # Find forbidden files
+        print("loading data from {}".format(
+            '../../processed/questions/{}_inputs.json'.format(train_split)))
+        with open('../../processed/questions/{}_inputs.json'.format(train_split), 'r') as f:
+            data_all = json.load(f)
+        
+        path = '../Features/train/' 
+        files = set([os.path.splitext(filename)[0] for filename in os.listdir(path)])
+        print(random.sample(files, 10))
+        
+        print('Finding forbidden images ...')
+        forbidden = []
+        for entry in tqdm(data_all):
+            image_id = entry[0]
+            if image_id not in files:
+                print('Image_id: {}'.format(image_id))
+                forbidden.append(image_id)
+        
+        print('Forbidden size: {}'.format(len(forbidden)))
+        print('Writing forbidden_images file ...')
+        with open('meta_info/forbidden_images.json', 'w') as f:
+            json.dump(forbidden, f, indent=2)
+        
+        # Load dataset
         if args.gqa_loader == "v1":
             train_dataset = GQA_v1(split=train_split, mode='train', object_file=os.path.join(
                 args.data, args.object_file), **basic_kwargs)
@@ -270,6 +296,7 @@ if __name__ == "__main__":
         elif args.gqa_loader == "v2":
             train_dataset = GQA_v2(split=train_split, mode='train', contained_weight=args.contained_weight,
                                    threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
+            print('testing')
             test_dataset = GQA_v2(split=testdev_split, mode='val', contained_weight=args.contained_weight,
                                   threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
         elif args.gqa_loader == "v3":

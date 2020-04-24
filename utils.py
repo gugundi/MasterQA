@@ -19,7 +19,7 @@ while True:
 FIELDNAMES = ["img_id", "img_h", "img_w", "objects_id", "objects_conf",
               "attrs_id", "attrs_conf", "num_boxes", "boxes", "features"]
 
-def load_obj_tsv(fname, topk=None):
+def load_obj_tsv(fname, npz=True, topk=None):
     """Load object features from tsv file.
     :param fname: The path to the tsv file.
     :param topk: Only load features for top K images (lines) in the tsv file.
@@ -52,8 +52,13 @@ def load_obj_tsv(fname, topk=None):
                 item[key].setflags(write=False)
 
             data.append(item)
+            
             if topk is not None and len(data) == topk:
                 break
+            
+            if i % 100 == 0:
+                print('Processed {} images in {} seconds \r'.format(i, time.time()-start_time), end='', flush=True)
+    
     elapsed_time = time.time() - start_time
     print("Loaded %d images in file %s in %d seconds." % (len(data), fname, elapsed_time))
     return data
