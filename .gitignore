@@ -1,2 +1,6 @@
 *.pkl
 dataset/
+Features/
+*__pycache__/
+Meta\ Module\ Files/Networks/__pycache__/
+Meta Module Files/__pycache__/
