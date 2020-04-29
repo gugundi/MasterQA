@@ -5,6 +5,7 @@ import torch
 import math
 import Constants
 import numpy as np
+import sys
 # ------------------------------
 # ---- Multi-Head Attention ----
 # ------------------------------
@@ -762,11 +763,14 @@ class TreeTransformerSparsePostv2(nn.Module):
 
 		# Projection layer to retrieve final answer
 		self.proj = nn.Linear(hidden_dim, answer_size)
+		print('Hidden dim: {}, visual dim: {}, coordinate dim {}, intermediate dim: {}'.format(hidden_dim, visual_dim, coordinate_dim, intermediate_dim))
 
 	def forward(self, ques, ques_masks, program, program_masks, transition_masks, activate_masks, vis_feat, box_feat, vis_mask, index, depth):
 		batch_size = ques.size(0)
 		length = program.size(1)
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
+		print(vis_feat.size(), box_feat.size(), idx.size())
+		sys.stdout.flush()
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
 		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()

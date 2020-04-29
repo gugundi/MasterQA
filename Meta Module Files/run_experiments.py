@@ -339,15 +339,23 @@ if __name__ == "__main__":
                 print('lr', optimizer.param_groups[-1]['lr'])
 
             model.train()
+            
+            print('Start time...')
             start_time = time.time()
             for i, batch in enumerate(train_dataloader):
+                print('Entered enumeration {}'.format(i))
+                sys.stdout.flush()
                 questionId = batch[-1]
                 batch = tuple(Variable(t).to(device) for t in batch[:-1])
-
+                
+                print('Zero grad')
+                sys.stdout.flush()
                 model.zero_grad()
                 optimizer.zero_grad()
 
                 results = model(*batch[:-2])
+                print('If instance')
+                sys.stdout.flush()
                 if isinstance(results, tuple):
                     pre_logits, logits = results
                     length = pre_logits.size(-1)
@@ -357,14 +365,22 @@ if __name__ == "__main__":
                     logits = results
                     pre_loss = torch.FloatTensor([0]).to(device)
                     pred_loss = cross_entropy(logits, batch[-1])
-
+                
+                print('Calculate loss')
+                sys.stdout.flush()
                 loss = args.weight * pre_loss + pred_loss
 
+                print('Back propagate')
+                sys.stdout.flush()
                 loss.backward()
+                
+                print('Optimzer step')
+                sys.stdout.flush()
                 optimizer.step()
-                if i % 100 == 0:
+                if i % 1 == 0:
                     print("epoch: {}, iteration {}/{}: module loss = {}, pred_loss = {} used time = {}".
                           format(epoch, i, len(train_dataloader), pre_loss.item(), pred_loss.item(), time.time() - start_time))
+                sys.stdout.flush()
                 start_time = time.time()
 
             model.eval()
