@@ -370,7 +370,6 @@ APIS['same'] = lambda graph, *candidates: compare(graph, list(candidates)[0], 's
 
 
 def compare(graph, candidates, category):
-    print(candidates)
     graph = graph['objects']
     if len(candidates) < 2:
         return None

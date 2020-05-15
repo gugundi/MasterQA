@@ -7,14 +7,20 @@ import sys
 import time
 import os
 import copy
+import json
+import random
+from tqdm import tqdm
 from torch.autograd import Variable
+from torch import autograd
 from torch.utils.data import DataLoader
+from torch.nn import KLDivLoss
+from torch.nn.functional import kl_div
 from Networks.modular import *
 from GQA import *
 import glob
 import resource
 import itertools
-from collections import Counter
+from torch.utils.tensorboard import SummaryWriter
 
 device = torch.device('cuda')
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -37,7 +43,7 @@ def parse_opt():
     parser.add_argument('--do_submission', default=False, action="store_true",
                         help="whether to train or test the model")
     parser.add_argument('--ensemble', default=False, action="store_true", help="whether to train or test the model")
-    parser.add_argument('--data', type=str, default="../../gqa_bottom_up_features/",
+    parser.add_argument('--data', type=str, default="../Features/",
                         help="whether to train or test the model")
     parser.add_argument('--object_info', type=str, default='gqa_objects_merged_info.json',
                         help="whether to train or test the model")
@@ -51,11 +57,11 @@ def parse_opt():
     parser.add_argument('--glimpse', type=int, default=1, help="whether to train or test the model")
     parser.add_argument('--debug', default=False, action="store_true", help="whether to train or test the model")
     parser.add_argument('--visual_dim', type=int, default=2048, help="whether to train or test the model")
-    parser.add_argument('--num_regions', type=int, default=48, help="whether to train or test the model")
-    parser.add_argument('--spatial_regions', type=int, default=49, help="whether to train or test the model")
+    parser.add_argument('--num_regions', type=int, default=36, help="whether to train or test the model")
+    parser.add_argument('--spatial_regions', type=int, default=37, help="whether to train or test the model")
     parser.add_argument('--num_tokens', type=int, default=30, help="whether to train or test the model")
     parser.add_argument('--num_workers', type=int, default=16, help="whether to train or test the model")
-    parser.add_argument('--additional_dim', type=int, default=6, help="whether to train or test the model")
+    parser.add_argument('--additional_dim', type=int, default=4, help="whether to train or test the model")
     parser.add_argument('--weight', type=float, default=0.5, help="whether to train or test the model")
     parser.add_argument('--batch_size', type=int, default=256, help="whether to train or test the model")
     parser.add_argument('--num_epochs', type=int, default=20, help="whether to train or test the model")
@@ -70,7 +76,7 @@ def parse_opt():
     parser.add_argument('--resume', type=int, default=-1, help="whether to train or test the model")
     parser.add_argument('--concept_glove', type=str, default="models/concept_emb.npy",
                         help="whether to train or test the model")
-    parser.add_argument('--word_glove', type=str, default="meta_info/en_emb.npy",
+    parser.add_argument('--word_glove', type=str, default="../../models/en_emb.npy",
                         help="whether to train or test the model")
     parser.add_argument('--dropout', type=float, default=0.1, help="whether to train or test the model")
     parser.add_argument('--distribution', default=False, action='store_true', help="whether to train or test the model")
@@ -95,6 +101,7 @@ def parse_opt():
 
 if __name__ == "__main__":
     args = parse_opt()
+    
     if args.do_submission:
         args.length += 1
     torch.manual_seed(args.seed)
@@ -261,7 +268,33 @@ if __name__ == "__main__":
 
             model.load_state_dict(torch.load(args.load_from))
             print("Loading the bootstrapped model from {}".format(args.load_from))
-
+        
+        # Find forbidden files
+        # print("loading data from {}".format(
+        #     '../../processed/questions/{}_inputs.json'.format(train_split)))
+        # with open('../../processed/questions/{}_inputs.json'.format(train_split), 'r') as f:
+        #     data_all = json.load(f)
+        # 
+        # path = '../Features/train/' 
+        # files = set([os.path.splitext(filename)[0] for filename in os.listdir(path)])
+        # print(random.sample(files, 10))
+        # 
+        # print('Finding forbidden images ...')
+        # forbidden = []
+        # for entry in tqdm(data_all):
+        #     image_id = entry[0]
+        #     if image_id not in files:
+        #         print('Image_id: {}'.format(image_id))
+        #         forbidden.append(image_id)
+        # 
+        # print('Forbidden size: {}'.format(len(forbidden)))
+        # print('Writing forbidden_images file ...')
+        # with open('meta_info/forbidden_images.json', 'w') as f:
+        #     json.dump(forbidden, f, indent=2)
+        
+        
+        
+        # Load dataset
         if args.gqa_loader == "v1":
             train_dataset = GQA_v1(split=train_split, mode='train', object_file=os.path.join(
                 args.data, args.object_file), **basic_kwargs)
@@ -277,6 +310,11 @@ if __name__ == "__main__":
                                    threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
             test_dataset = GQA_v3(split=testdev_split, mode='val', contained_weight=args.contained_weight,
                                   threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
+        elif args.gqa_loader == "v4":
+            train_dataset = GQA_v4(split=train_split, mode='train', contained_weight=args.contained_weight,
+                                   threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
+            test_dataset = GQA_v4(split=testdev_split, mode='val', contained_weight=args.contained_weight,
+                                  threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
         else:
             raise NotImplementedError
 
@@ -289,8 +327,13 @@ if __name__ == "__main__":
             test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size,
                                          shuffle=False, num_workers=args.num_workers)
 
+        # Add summary writer for tensorboard    
+        #writer = SummaryWriter(log_dir="../../models/runs", comment="LR_{}_batchsize_{}_seed_{}_split_{}".format(args.lr_default, args.batch_size, args.seed, train_split))
+        writer = SummaryWriter(comment="LR_{}_batchsize_{}_seed_{}_split_{}".format(args.lr_default, args.batch_size, args.seed, train_split))
+        
         cross_entropy = nn.CrossEntropyLoss(ignore_index=-1)
         KL_loss = KLDivergence()
+        # KL_loss = KLDivLoss()
 
         optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()), lr=args.lr_default)
 
@@ -312,33 +355,79 @@ if __name__ == "__main__":
                 print('lr', optimizer.param_groups[-1]['lr'])
 
             model.train()
+            success_train, total_train = 0, 0
             start_time = time.time()
             for i, batch in enumerate(train_dataloader):
-                questionId = batch[-1]
-                batch = tuple(Variable(t).to(device) for t in batch[:-1])
+                len(train_dataloader)
+                with autograd.detect_anomaly():
+                    questionId = batch[-1]
+                    batch = tuple(Variable(t).to(device) for t in batch[:-1])
+                    #print("Sum: {}".format(batch[-2].sum()))
 
-                model.zero_grad()
-                optimizer.zero_grad()
+                    model.zero_grad()
+                    optimizer.zero_grad()
 
-                results = model(*batch[:-2])
-                if isinstance(results, tuple):
-                    pre_logits, logits = results
-                    length = pre_logits.size(-1)
-                    pre_loss = KL_loss(batch[-2].view(-1, length), pre_logits.view(-1, length))
-                    pred_loss = cross_entropy(logits, batch[-1])
-                else:
-                    logits = results
-                    pre_loss = torch.FloatTensor([0]).to(device)
-                    pred_loss = cross_entropy(logits, batch[-1])
+                    #print('Batch: {}'.format(batch[:-2]))
 
-                loss = args.weight * pre_loss + pred_loss
+                    results = model(*batch[:-2])
+                    if isinstance(results, tuple):
+                        pre_logits, logits = results
+                        length = pre_logits.size(-1)
+                        #print("Batch: {}, pre_logits: {}".format(batch[-2], pre_logits.view(-1, length)))
+                        pre_loss = KL_loss(batch[-2].view(-1, length), pre_logits.view(-1, length))
+                        pred_loss = cross_entropy(logits, batch[-1])
+                    else:
+                        #print('Results is not a tuple!')
+                        #sys.stdout.flush()
+                        logits = results
+                        pre_loss = torch.FloatTensor([0]).to(device)
+                        pred_loss = cross_entropy(logits, batch[-1])
 
-                loss.backward()
-                optimizer.step()
-                if i % 100 == 0:
-                    print("epoch: {}, iteration {}/{}: module loss = {}, pred_loss = {} used time = {}".
-                          format(epoch, i, len(train_dataloader), pre_loss.item(), pred_loss.item(), time.time() - start_time))
-                start_time = time.time()
+                    #print('Pre_loss: {}, pred_loss: {}'.format(pre_loss, pred_loss))
+                    loss = args.weight * pre_loss + pred_loss
+
+                    loss.backward()
+                    optimizer.step()
+                    
+                    writer.add_scalar('Train/loss', loss, i + len(train_dataloader)*epoch)
+                    
+                    preds = torch.argmax(logits, -1)
+                    success_or_not = (preds == batch[-1]).float()
+
+                    success_train += torch.sum(success_or_not).item()
+                    total_train += success_or_not.size(0)
+                    if i % 10 == 0:
+                        acc = round(success_train / (total_train + 0.), 4)
+                        writer.add_scalar('Train/accuracy', acc, i + len(train_dataloader)*epoch)
+
+                    if i % 1 == 0:
+                        print("epoch: {}, iteration {}/{}: module loss = {}, pred_loss = {} used time = {}".
+                              format(epoch, i, len(train_dataloader), pre_loss.item(), pred_loss.item(), time.time() - start_time))
+                        
+                    if i % 100 == 0:
+                        model.eval()
+                        eval_success, eval_total = 0, 0
+                        for j, eval_batch in enumerate(test_dataloader):
+                            eval_questionId = eval_batch[-1]
+                            eval_batch = tuple(Variable(t).to(device) for t in eval_batch[:-1])
+
+                            eval_results = model(*eval_batch[:-2])
+                            if isinstance(eval_results, tuple):
+                                eval_logits = eval_results[1]
+                            else:
+                                eval_logits = eval_results
+                            eval_preds = torch.argmax(eval_logits, -1)
+                            eval_success_or_not = (eval_preds == eval_batch[-1]).float()
+
+                            eval_success += torch.sum(eval_success_or_not).item()
+                            eval_total += eval_success_or_not.size(0)
+
+                        eval_acc = round(eval_success / (eval_total + 0.), 4)
+                        print("iteration {}, accuracy = {}".format(i / 100, eval_acc))
+                        writer.add_scalar('Validation/accuracy', eval_acc, (i + len(train_dataloader)*epoch) / 100)
+                    
+                    sys.stdout.flush()
+                    start_time = time.time()
 
             model.eval()
             success, total = 0, 0
@@ -359,8 +448,11 @@ if __name__ == "__main__":
 
             acc = round(success / (total + 0.), 4)
             print("epoch {}, accuracy = {}".format(epoch, acc))
+            writer.add_scalar('Epoch/accuracy', acc, epoch)
 
             torch.save(model.state_dict(), os.path.join(repo, 'model_ep{}_{}'.format(epoch, acc)))
+            
+        writer.close()
 
     elif args.do_analyze:
         train_split = 'trainval_unbiased_fully'
@@ -439,6 +531,10 @@ if __name__ == "__main__":
                                   **basic_kwargs)
         elif args.gqa_loader == 'v3':
             test_dataset = GQA_v3(split=split, mode='val', folder=args.data, cutoff=args.cutoff,
+                                  threshold=args.threshold, contained_weight=args.contained_weight,
+                                  **basic_kwargs)
+        elif args.gqa_loader == 'v4':
+            test_dataset = GQA_v4(split=split, mode='val', folder=args.data, cutoff=args.cutoff,
                                   threshold=args.threshold, contained_weight=args.contained_weight,
                                   **basic_kwargs)
 

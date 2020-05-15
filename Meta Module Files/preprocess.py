@@ -294,6 +294,7 @@ def preprocess(raw_data, output_path, formal=False):
             # elif answer == "left" and 'choose' in new_programs[-1]:
             #    answer = 'to the left of'
 
+        #print("Programs: {}".format(new_programs[:9]))
         symbolic_programs.append((imageId, question, new_programs, keys[idx], answer))
         success += 1
 
@@ -329,6 +330,8 @@ def create_inputs(splits, output):
 
         count = 0
         for idx, entry in enumerate(data):
+            if idx == 1:
+                print(entry[2], type(entry[2]))
             # for prog in entry[2]:
             programs = entry[2]
             rounds = []
@@ -341,6 +344,7 @@ def create_inputs(splits, output):
             tmp_connection = []
             for i, program in enumerate(programs):
                 if isinstance(program, list):
+                    #print("It's a list!!!!!!!")
                     _, func, args = Constants.parse_program(program[1])
                     returns.append(program[0])
                 else:
@@ -562,7 +566,7 @@ elif arg == 'glove_emb':
         print("found = {}, miss = {}".format(found, miss))
         np.save(outputs, en_emb)
 
-    save('meta_info/full_vocab.json', 'models/en_emb.npy')
+    save('meta_info/full_vocab.json', '../../models/en_emb.npy')
     #save('nl2prog/concept_vocab.json', 'models/concept_emb.npy')
 else:
     raise NotImplementedError

@@ -22,6 +22,7 @@ def gqa_feature_loader():
     img_info = json.load(open('../Extraction/gqa_features_merged_info.json', 'r'))
     return img_features, img_boxes, img_info
 
+
 class GQA(Dataset):
     def __init__(self, **args):
         self.mode = args['mode']
@@ -33,14 +34,13 @@ class GQA(Dataset):
         else:
             self.forbidden = set([])
         
-        #files = 'testdev' if self.mode == 'val' else 'train'
-        #path = '../Features/{}/'.format(files) 
-        #self.files = set([os.path.splitext(filename)[0] for filename in os.listdir(path)])
+        print('Getting´a list of filenames of features')
+        files = 'testdev' if self.mode == 'val' else 'train'
+        path = '../Features/{}/'.format(files) 
+        self.files = set([os.path.splitext(filename)[0] for filename in os.listdir(path)])
         
         print('Loading features from ../Extraction/')
         self.img_features, self.img_boxes, self.img_info = gqa_feature_loader()
-        
-        #print('Looking at features from ../Features/{}/'.format(files))
         
         print("loading data from {}".format(
             '../../processed/questions/{}_inputs.json'.format(self.split)))
@@ -54,12 +54,12 @@ class GQA(Dataset):
 
         with open(args['object_info']) as f:
             self.object_info = json.load(f)
-
+        
         database = set(self.object_info.keys())
         self.data = list(filter(lambda x: x[0] in database, self.data))
         print("there are in total {} instances before validation removal".format(len(self.data)))
-
-        self.data = list(filter(lambda x: x[-2] not in [self.forbidden], self.data))
+        
+        self.data = list(filter(lambda x: x[-2] not in self.forbidden, self.data))
         print("there are in total {} instances".format(len(self.data)))
 
         self.vocab = args['vocab']
@@ -206,12 +206,6 @@ class GQA_v2(GQA):
             if len(image_id) < 7:
                 image_id = "0" * (7 - len(image_id)) + image_id
 
-        # image_id = entry[0]
-        # question = entry[1]
-        # inputs = entry[3]
-        # connection = entry[4]
-        # questionId = entry[-2]
-
         length = min(len(inputs), self.LENGTH)
 
         # Prepare Question
@@ -236,6 +230,7 @@ class GQA_v2(GQA):
 
         # Prepare Program Transition Mask
         transition_masks = np.zeros(
+            #(self.MAX_LAYER, self.LENGTH, self.LENGTH), 'uint8')
             (self.MAX_LAYER, self.LENGTH, self.LENGTH), 'uint8')
         activate_mask = np.zeros((self.MAX_LAYER, self.LENGTH), 'float32')
         for i in range(self.MAX_LAYER):
@@ -253,6 +248,7 @@ class GQA_v2(GQA):
 
         vis_mask = np.zeros((self.num_regions, ), 'float32')
         # Prepare Vision Feature
+        image_id = image_id.lstrip('0')
         if image_id not in self.files:
             print('Image id: {}'.format(image_id))
         bottom_up = np.load(os.path.join(
@@ -263,15 +259,15 @@ class GQA_v2(GQA):
 
         # Cut off the bottom up features
         object_feat = bottom_up['features'][:adaptive_num_regions]
-        #idx = int(self.img_info[image_id]['index'])
+        
         #idx = self.img_info[image_id.lstrip('0')]['index']
         #img = torch.from_numpy(self.img[idx])
-        
-        #object_feat = self.img_features[image_id][:adaptive_num_regions]
         #object_feat = self.img_features[idx]
-        bbox_feat = bottom_up['norm_bb'][:adaptive_num_regions]
-        #bbox_feat = bottom_up['boxes'][:adaptive_num_regions]
+        
+        #bbox_feat = bottom_up['norm_bb'][:adaptive_num_regions]
+        bbox_feat = bottom_up['boxes'][:adaptive_num_regions]
         #bbox_feat = self.img_boxes[idx]
+        
         vis_mask[:bbox_feat.shape[0]] = 1.
         # Padding zero
         if object_feat.shape[0] < self.num_regions:
@@ -282,6 +278,7 @@ class GQA_v2(GQA):
             padding = self.num_regions - bbox_feat.shape[0]
             bbox_feat = np.concatenate([bbox_feat, np.zeros(
                 (padding, bbox_feat.shape[1]), 'float32')], 0)
+            
         num_regions = bbox_feat.shape[0]
 
         # exist = np.full((self.LENGTH, ), -1, 'float32')
@@ -296,8 +293,8 @@ class GQA_v2(GQA):
                     continue
                     
                 if isinstance(returns[idx], list):
-                    print('Returns length: {}, length: {}'.format(len(returns), length))
-                    print('Returns: {}'.format(returns[idx]))
+                    #print('Returns length: {}, length: {}'.format(len(returns), length))
+                    #print('Returns: {}'.format(returns[idx]))
                     if returns[idx] == [-1, -1, -1, -1]:
                         intermediate_idx[idx][num_regions] = 1
                     else:
@@ -462,9 +459,9 @@ class GQA_v3(GQA):
             bbox_feat, vis_mask, index, depth, switch, intermediate_idx, answer_id, questionId
 
 
-class GQA_v2(GQA):
+class GQA_v4(GQA):
     def __init__(self, **args):
-        super(GQA_v2, self).__init__(**args)
+        super(GQA_v4, self).__init__(**args)
         self.folder = args['folder']
         self.threshold = args['threshold']
         self.contained_weight = args['contained_weight']
@@ -479,12 +476,6 @@ class GQA_v2(GQA):
         if not image_id.startswith('n'):
             if len(image_id) < 7:
                 image_id = "0" * (7 - len(image_id)) + image_id
-
-        # image_id = entry[0]
-        # question = entry[1]
-        # inputs = entry[3]
-        # connection = entry[4]
-        # questionId = entry[-2]
 
         length = min(len(inputs), self.LENGTH)
 
@@ -510,6 +501,7 @@ class GQA_v2(GQA):
 
         # Prepare Program Transition Mask
         transition_masks = np.zeros(
+            #(self.MAX_LAYER, self.LENGTH, self.LENGTH), 'uint8')
             (self.MAX_LAYER, self.LENGTH, self.LENGTH), 'uint8')
         activate_mask = np.zeros((self.MAX_LAYER, self.LENGTH), 'float32')
         for i in range(self.MAX_LAYER):
@@ -527,27 +519,26 @@ class GQA_v2(GQA):
 
         vis_mask = np.zeros((self.num_regions, ), 'float32')
         # Prepare Vision Feature
-        # if image_id not in self.files:
-        #     print('Image id: {}'.format(image_id))
-        # bottom_up = np.load(os.path.join(
-        #         self.folder, 'train', '{}.npz'.format(image_id)))
-        # adaptive_num_regions = min(
-        #     #(bottom_up['conf'] > self.threshold).sum(), self.num_regions)
-        #     (bottom_up['objects_conf'] > self.threshold).sum(), self.num_regions)
-        
-        
+        image_id = image_id.lstrip('0')
+        if image_id not in self.files:
+            print('Image id: {}'.format(image_id))
+        bottom_up = np.load(os.path.join(
+                self.folder, 'train', '{}.npz'.format(image_id.lstrip('0'))))
+        adaptive_num_regions = min(
+            #(bottom_up['conf'] > self.threshold).sum(), self.num_regions)
+            (bottom_up['objects_conf'] > self.threshold).sum(), self.num_regions)
 
         # Cut off the bottom up features
-        #object_feat = bottom_up['features'][:adaptive_num_regions]
-        #idx = int(self.img_info[image_id]['index'])
-        idx = self.img_info[image_id.lstrip('0')]['index']
-        #img = torch.from_numpy(self.img[idx])
+        object_feat = bottom_up['features'][:adaptive_num_regions]
         
-        #object_feat = self.img_features[image_id][:adaptive_num_regions]
-        object_feat = self.img_features[idx]
+        #idx = self.img_info[image_id.lstrip('0')]['index']
+        #img = torch.from_numpy(self.img[idx])
+        #object_feat = self.img_features[idx]
+        
         #bbox_feat = bottom_up['norm_bb'][:adaptive_num_regions]
-        #bbox_feat = bottom_up['boxes'][:adaptive_num_regions]
-        bbox_feat = self.img_boxes[idx]
+        bbox_feat = bottom_up['boxes'][:adaptive_num_regions]
+        #bbox_feat = self.img_boxes[idx]
+        
         vis_mask[:bbox_feat.shape[0]] = 1.
         # Padding zero
         if object_feat.shape[0] < self.num_regions:
@@ -558,6 +549,9 @@ class GQA_v2(GQA):
             padding = self.num_regions - bbox_feat.shape[0]
             bbox_feat = np.concatenate([bbox_feat, np.zeros(
                 (padding, bbox_feat.shape[1]), 'float32')], 0)
+            bbox_feat = np.concatenate([bbox_feat, np.zeros(
+                (bbox_feat.shape[0], 2), 'float32')], 1)
+            
         num_regions = bbox_feat.shape[0]
 
         # exist = np.full((self.LENGTH, ), -1, 'float32')
@@ -572,8 +566,8 @@ class GQA_v2(GQA):
                     continue
                     
                 if isinstance(returns[idx], list):
-                    print('Returns length: {}, length: {}'.format(len(returns), length))
-                    print('Returns: {}'.format(returns[idx]))
+                    #print('Returns length: {}, length: {}'.format(len(returns), length))
+                    #print('Returns: {}'.format(returns[idx]))
                     if returns[idx] == [-1, -1, -1, -1]:
                         intermediate_idx[idx][num_regions] = 1
                     else:

@@ -6,6 +6,9 @@ import math
 import Constants
 import numpy as np
 import sys
+import warnings
+
+warnings.filterwarnings('ignore')
 # ------------------------------
 # ---- Multi-Head Attention ----
 # ------------------------------
@@ -18,7 +21,8 @@ class PositionalEmbedding(nn.Module):
 
 		# Compute the positional encodings once in log space.
 		pe = torch.zeros(max_len, d_model).float()
-		pe.require_grad = False
+		#pe.require_grad = False
+		pe.requires_grad = False
 
 		position = torch.arange(0, max_len).float().unsqueeze(1)
 		div_term = (torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)).exp()
@@ -70,6 +74,8 @@ class MHAtt(nn.Module):
 			self.hidden_size_head
 		).transpose(1, 2)
 
+		#print('v: {}, k: {}, q: {}, mask: {}'.format(v.size(), k.size(), q.size(), mask.size()))
+		sys.stdout.flush()
 		atted = self.att(v, k, q, mask)
 		atted = atted.transpose(1, 2).contiguous().view(
 			n_batches,
@@ -84,6 +90,8 @@ class MHAtt(nn.Module):
 	def att(self, value, key, query, mask):
 		d_k = query.size(-1)
 		scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+		#print('Scores: {}'.format(scores.size()))
+		sys.stdout.flush()
 
 		if mask is not None:
 			scores = scores.masked_fill(mask, -1e9)
@@ -216,7 +224,8 @@ class Module(nn.Module):
 
 	def forward(self, inputs, mask, vis_feat, vis_mask_tmp, program_masks, alpha):
 		alpha = alpha.unsqueeze(-1)
-		trans_mask = (1 - mask).unsqueeze(1).byte()
+		# trans_mask = (1 - mask).unsqueeze(1).byte()
+		trans_mask = (1 - mask).unsqueeze(1).bool()
 		enc_output = self.self_attention(inputs, trans_mask)
 		enc_output = self.cross_attention(enc_output, vis_feat, vis_mask_tmp)
 		enc_output = enc_output * program_masks.unsqueeze(-1)
@@ -247,7 +256,8 @@ class DeepModule(nn.Module):
 
 	def forward(self, inputs, mask, vis_feat, vis_mask_tmp, program_masks, alpha):
 		alpha = alpha.unsqueeze(-1)
-		trans_mask = (1 - mask).unsqueeze(1).byte()
+		#trans_mask = (1 - mask).unsqueeze(1).byte()
+		trans_mask = (1 - mask).unsqueeze(1).bool()
 		enc_output = self.self_attention(inputs, trans_mask)
 		for cross_attention in self.cross_attention:
 			enc_output = cross_attention(enc_output, vis_feat, vis_mask_tmp)
@@ -466,10 +476,12 @@ class TreeTransformer(nn.Module):
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
-		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
-		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
-
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
+		# ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
+		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).bool()
+		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).bool()
 		# Encoding the question with self-attention
 		ques_input = self.ques_proj(self.embedding(ques)) + self.ques_pos_emb(ques)
 		for enc in self.ques_encoder:
@@ -484,7 +496,8 @@ class TreeTransformer(nn.Module):
 		buffers = [self.prog_proj(self.embedding(program)).view(batch_size, program.size(1), -1)]
 		transition_masks = transition_masks.transpose(0, 1)
 		for prog, cross, mask in zip(self.prog_encoder, self.cross_decoder, transition_masks):
-			enc_output = prog(buffers[-1], (1 - mask).unsqueeze(1).byte())
+			#enc_output = prog(buffers[-1], (1 - mask).unsqueeze(1).byte())
+			enc_output = prog(buffers[-1], (1 - mask).unsqueeze(1).bool())
 			enc_output = cross(enc_output, vis_feat, vis_mask_tmp)
 			buffers.append(enc_output * program_masks.unsqueeze(-1))
 		buffers.pop(0)
@@ -543,9 +556,12 @@ class TreeTransformerSparse(nn.Module):
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
-		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
-		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
+		# ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
+		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).bool()
+		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).bool()
 
 		# Encoding the question with self-attention
 		ques_input = self.ques_proj(self.embedding(ques)) + self.ques_pos_emb(ques)
@@ -614,9 +630,12 @@ class TreeTransformerDeepSparse(nn.Module):
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
-		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
-		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
+		# ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
+		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).bool()
+		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).bool()
 
 		# Encoding the question with self-attention
 		ques_input = self.ques_proj(self.embedding(ques)) + self.ques_pos_emb(ques)
@@ -689,9 +708,12 @@ class TreeTransformerSparsePost(nn.Module):
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
-		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
-		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
+		# ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
+		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).bool()
+		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).bool()
 
 		# Encoding the question with self-attention
 		ques_input = self.ques_proj(self.embedding(ques)) + self.ques_pos_emb(ques)
@@ -732,7 +754,9 @@ class TreeTransformerSparsePostv2(nn.Module):
 				 n_head, n_layers, stacking, dropout, intermediate_dim, pre_layers, intermediate_layer):
 		super(TreeTransformerSparsePostv2, self).__init__()
 		# The question encoder
-		self.embedding = nn.Embedding(vocab_size, 300, padding_idx=Constants.PAD)
+		# self.embedding = nn.Embedding(vocab_size, 300, padding_idx=Constants.PAD)
+		self.embedding = nn.Embedding(vocab_size, 300)
+		self.embedding.weight.requires_grad = False
 		self.ques_proj = nn.Linear(300, hidden_dim)
 		self.prog_proj = nn.Linear(300, hidden_dim // 8)
 
@@ -763,33 +787,41 @@ class TreeTransformerSparsePostv2(nn.Module):
 
 		# Projection layer to retrieve final answer
 		self.proj = nn.Linear(hidden_dim, answer_size)
-		print('Hidden dim: {}, visual dim: {}, coordinate dim {}, intermediate dim: {}'.format(hidden_dim, visual_dim, coordinate_dim, intermediate_dim))
+		#print('Hidden dim: {}, visual dim: {}, coordinate dim {}, intermediate dim: {}'.format(hidden_dim, visual_dim, coordinate_dim, intermediate_dim))
 
 	def forward(self, ques, ques_masks, program, program_masks, transition_masks, activate_masks, vis_feat, box_feat, vis_mask, index, depth):
 		batch_size = ques.size(0)
 		length = program.size(1)
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
-		print(vis_feat.size(), box_feat.size(), idx.size())
-		sys.stdout.flush()
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
-		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
-		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
-
-		# Encoding the question with self-attention
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
+		# ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
+		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).bool()
+		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).bool()
+		
+		if (self.ques_proj.weight != self.ques_proj.weight).any():
+			raise Exception('There is a NaN value in the question input')
+		
 		ques_input = self.ques_proj(self.embedding(ques)) + self.ques_pos_emb(ques)
+		#print('Ques_input: {}'.format(ques_input))
 		for enc in self.ques_encoder:
 			ques_input = enc(ques_input, ques_mask_tmp)
 			ques_input *= ques_masks.unsqueeze(-1)
 		# Encoding the visual feature
 		for enc in self.vis_encoder:
+			#print(enc)
 			vis_feat = enc(vis_feat, ques_input, vis_mask_tmp, ques_mask_tmp)
+			#print('Vis_feat: {}'.format(vis_feat))
 			vis_feat *= vis_mask.unsqueeze(-1)
 
 		enc_output = self.prog_proj(self.embedding(program)).view(batch_size, program.size(1), -1)
+		#print('Enc_output: {}'.format(enc_output))
 		transition_masks = transition_masks.transpose(0, 1)
 		activate_masks = activate_masks.transpose(0, 1)
+		# print('Trans_mask: {}, act_mask: {}'.format(transition_masks, activate_masks))
 
 		# Build the structure into the transformer
 		for trans_mask, active_mask in zip(transition_masks, activate_masks):
@@ -798,7 +830,7 @@ class TreeTransformerSparsePostv2(nn.Module):
 		# Post-Processing the encoder output
 		for layer in self.post:
 			enc_output = layer(enc_output, vis_feat, vis_mask_tmp, program_masks)
-
+		
 		# Predict the intermediate results
 		pre_logits = self.idx_predictor(enc_output)
 
@@ -851,9 +883,12 @@ class OnlyVision(nn.Module):
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
-		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
-		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
+		# ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
+		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).bool()
+		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).bool()
 
 		# Encoding the question with self-attention
 		ques_input = self.ques_proj(self.embedding(ques)) + self.ques_pos_emb(ques)
@@ -913,10 +948,14 @@ class TreeTransformerConcept(nn.Module):
 		idx = torch.arange(vis_feat.size(1)).unsqueeze(0).repeat(batch_size, 1).to(ques.device)
 		vis_feat = self.vis_proj(vis_feat) + self.coordinate_proj(box_feat) + self.pos_emb(idx)
 
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
-		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
-		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
-		concept_mask_tmp = (1 - concept_mask).unsqueeze(1).unsqueeze(2).byte()
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).byte()
+		# ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).byte()
+		# concept_mask_tmp = (1 - concept_mask).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
+		program_mask_tmp = (1 - program_masks).unsqueeze(1).unsqueeze(2).bool()
+		ques_mask_tmp = (1 - ques_masks).unsqueeze(1).unsqueeze(2).bool()
+		concept_mask_tmp = (1 - concept_mask).unsqueeze(1).unsqueeze(2).bool()
 
 		concepts = self.concept_proj(self.concept_emb(concepts))
 		concepts = self.concept_encoder(concepts, concept_mask_tmp)
@@ -936,7 +975,8 @@ class TreeTransformerConcept(nn.Module):
 		buffers = [self.prog_emb(program).view(batch_size, program.size(1), -1)]
 		transition_masks = transition_masks.transpose(0, 1)
 		for prog, cross, mask in zip(self.prog_encoder, self.cross_decoder, transition_masks):
-			enc_output = prog(buffers[-1], (1 - mask).unsqueeze(1).byte())
+			# enc_output = prog(buffers[-1], (1 - mask).unsqueeze(1).byte())
+			enc_output = prog(buffers[-1], (1 - mask).unsqueeze(1).bool())
 			enc_output = cross(enc_output, vis_feat, vis_mask_tmp)
 			buffers.append(enc_output * program_masks.unsqueeze(-1))
 		buffers.pop(0)
@@ -963,7 +1003,8 @@ class ConceptNet(nn.Module):
 		self.network = SimpleClassifier(input_dim, 1024, vocab_size, dropout)
 
 	def forward(self, vis_feat, vis_mask):
-		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		# vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).byte()
+		vis_mask_tmp = (1 - vis_mask).unsqueeze(1).unsqueeze(2).bool()
 		vis_feat = self.attention(vis_feat, vis_mask_tmp)
 		prob = self.network(vis_feat)
 		logits = torch.max(prob, 1)[0]
