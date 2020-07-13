@@ -8,6 +8,13 @@ from torch.utils.data import Dataset
 import pickle
 import torch
 from torch import nn
+from multiprocessing import set_start_method
+
+#try:
+#    set_start_method('spawn')
+#except RuntimeError:
+#    pass
+#torch.multiprocessing.set_start_method('spawn')
 
 img = None
 img_info = {}
@@ -16,10 +23,10 @@ def gqa_feature_loader():
     if img is not None:
         return img, img_info
 
-    h = h5py.File('../Extraction/gqa_features.hdf5', 'r')
+    h = h5py.File('../Extraction/gqa_objects.hdf5', 'r')
     img_features = h['features']
     img_boxes = h['bboxes']
-    img_info = json.load(open('../Extraction/gqa_features_merged_info.json', 'r'))
+    img_info = json.load(open('../Extraction/gqa_objects_merged_info.json', 'r'))
     return img_features, img_boxes, img_info
 
 
@@ -35,21 +42,23 @@ class GQA(Dataset):
             self.forbidden = set([])
         
         print('Getting´a list of filenames of features')
-        files = 'testdev' if self.mode == 'val' else 'train'
-        path = '../Features/{}/'.format(files) 
+        files = 'test' if self.mode == 'val' else 'train'
+        #path = '../Features/{}/'.format(files)
+        #path = os.path.join(args['folder'], files)
+        path = args['folder']
         self.files = set([os.path.splitext(filename)[0] for filename in os.listdir(path)])
         
-        print('Loading features from ../Extraction/')
-        self.img_features, self.img_boxes, self.img_info = gqa_feature_loader()
+        #print('Loading features from ../Extraction/')
+        #self.img_features, self.img_boxes, self.img_info = gqa_feature_loader()
         
         print("loading data from {}".format(
-            '../../processed/questions/{}_inputs.json'.format(self.split)))
-        with open('../../processed/questions/{}_inputs.json'.format(self.split), 'r') as f:
+            '../processed/questions/{}_inputs.json'.format(self.split)))
+        with open('../processed/questions/{}_inputs.json'.format(self.split), 'r') as f:
             self.data = json.load(f)
 
         if self.split == 'trainval_all_fully':
             print("loading additional data from questions/trainval_calibrated_fully_inputs.json")
-            with open('../../processed/questions/trainval_calibrated_fully_inputs.json') as f:
+            with open('../processed/questions/trainval_calibrated_fully_inputs.json') as f:
                 self.data += json.load(f)
 
         with open(args['object_info']) as f:
@@ -253,6 +262,8 @@ class GQA_v2(GQA):
             print('Image id: {}'.format(image_id))
         bottom_up = np.load(os.path.join(
                 self.folder, 'train', '{}.npz'.format(image_id.lstrip('0'))))
+        #bottom_up = np.load(os.path.join(
+        #        self.folder, 'gqa_{}.npz'.format(image_id.lstrip('0'))))
         adaptive_num_regions = min(
             #(bottom_up['conf'] > self.threshold).sum(), self.num_regions)
             (bottom_up['objects_conf'] > self.threshold).sum(), self.num_regions)
@@ -602,6 +613,153 @@ class GQA_v4(GQA):
         return question, question_masks, program, program_masks, transition_masks, activate_mask, object_feat, \
             bbox_feat, vis_mask, index, depth, intermediate_idx, answer_id, questionId
 
+    
+class GQA_v5(GQA):
+    def __init__(self, **args):
+        super(GQA_v5, self).__init__(**args)
+        self.folder = args['folder']
+        self.threshold = args['threshold']
+        self.contained_weight = args['contained_weight']
+        self.cutoff = args['cutoff']
+        self.distribution = args['distribution']
+
+    def __getitem__(self, index):
+        # entry = self.data[index]
+        image_id, question, returns, inputs, connection, questionId, answerId = self.data[index]
+        
+        obj_info = self.object_info[image_id]
+        if not image_id.startswith('n'):
+            if len(image_id) < 7:
+                image_id = "0" * (7 - len(image_id)) + image_id
+
+        length = min(len(inputs), self.LENGTH)
+
+        # Prepare Question
+        idxs = word_tokenize(question)[:self.num_tokens]
+        question = [self.vocab.get(_, Constants.UNK) for _ in idxs]
+        question += [Constants.PAD] * (self.num_tokens - len(idxs))
+        question = np.array(question, 'int64')
+
+        question_masks = np.zeros((len(question), ), 'float32')
+        question_masks[:len(idxs)] = 1.
+        # Prepare Program
+        program = np.zeros((self.LENGTH, 8), 'int64')
+        depth = np.zeros((self.LENGTH, ), 'int64')
+        for i in range(length):
+            for j, text in enumerate(inputs[i]):
+                if text is not None:
+                    program[i][j] = self.vocab.get(text, Constants.UNK)
+
+        # Prepare Program mask
+        program_masks = np.zeros((self.LENGTH, ), 'float32')
+        program_masks[:length] = 1.
+
+        # Prepare Program Transition Mask
+        transition_masks = np.zeros(
+            #(self.MAX_LAYER, self.LENGTH, self.LENGTH), 'uint8')
+            (self.MAX_LAYER, self.LENGTH, self.LENGTH), 'uint8')
+        activate_mask = np.zeros((self.MAX_LAYER, self.LENGTH), 'float32')
+        for i in range(self.MAX_LAYER):
+            if i < len(connection):
+                for idx, idy in connection[i]:
+                    transition_masks[i][idx][idy] = 1
+                    depth[idx] = i
+                    activate_mask[i][idx] = 1
+            for j in range(self.LENGTH):
+                if activate_mask[i][j] == 0:
+                    # As a placeholder
+                    transition_masks[i][j][j] = 1
+                else:
+                    pass
+
+        vis_mask = np.zeros((self.num_regions, ), 'float32')
+        # Prepare Vision Feature
+        # [instances.pred_boxes.tensor, instances.scores, instances.pred_classes, features]
+        image_id = image_id.lstrip('0')
+        if image_id not in self.files:
+            print('Image id: {}'.format(image_id))
+        bottom_up = np.load(os.path.join(self.folder, '{}.npz'.format(image_id)))
+        #bottom_up = np.load(os.path.join(
+        #        self.folder, 'gqa_{}.npz'.format(image_id.lstrip('0'))))
+        adaptive_num_regions = min(
+            #(bottom_up['conf'] > self.threshold).sum(), self.num_regions)
+            #(bottom_up[1].cpu().detach().numpy() > self.threshold).sum(), self.num_regions)
+            (bottom_up['conf'] > self.threshold).sum(), self.num_regions)
+            
+        # Cut off the bottom up features
+        #object_feat = bottom_up[3][:adaptive_num_regions].cpu().detach().numpy()
+        object_feat = bottom_up['features'][:adaptive_num_regions]
+        
+        #idx = self.img_info[image_id.lstrip('0')]['index']
+        #img = torch.from_numpy(self.img[idx])
+        #object_feat = self.img_features[idx]
+        
+        #bbox_feat = bottom_up['norm_bb'][:adaptive_num_regions]
+        #bbox_feat = bottom_up[0][:adaptive_num_regions].cpu().detach().numpy()
+        bbox_feat = bottom_up['boxes'][:adaptive_num_regions]
+        #bbox_feat = self.img_boxes[idx]
+        
+        vis_mask[:bbox_feat.shape[0]] = 1.
+        # Padding zero
+        if object_feat.shape[0] < self.num_regions:
+            padding = self.num_regions - object_feat.shape[0]
+            object_feat = np.concatenate([object_feat, np.zeros(
+                (padding, object_feat.shape[1]), 'float32')], 0)
+        if bbox_feat.shape[0] < self.num_regions:
+            padding = self.num_regions - bbox_feat.shape[0]
+            bbox_feat = np.concatenate([bbox_feat, np.zeros(
+                (padding, bbox_feat.shape[1]), 'float32')], 0)
+            
+        num_regions = bbox_feat.shape[0]
+
+        # exist = np.full((self.LENGTH, ), -1, 'float32')
+        if self.mode == 'train':
+            #returns = entry[2]
+            intermediate_idx = np.full(
+                (self.LENGTH, num_regions + 1), 0, 'float32')
+            intersect_iou = np.full(
+                (length - 1, num_regions + 1), 0., 'float32')
+            for idx in range(length - 1):
+                if not returns:
+                    continue
+                    
+                if isinstance(returns[idx], list):
+                    #print('Returns length: {}, length: {}'.format(len(returns), length))
+                    #print('Returns: {}'.format(returns[idx]))
+                    if returns[idx] == [-1, -1, -1, -1]:
+                        intermediate_idx[idx][num_regions] = 1
+                    else:
+                        gt_coordinate = (returns[idx][0] / (obj_info['width'] + 0.),
+                                         returns[idx][1] / (obj_info['height'] + 0.),
+                                         (returns[idx][2] + returns[idx][0]) / (obj_info['width'] + 0.),
+                                         (returns[idx][3] + returns[idx][1]) / (obj_info['height'] + 0.))
+                        for i in range(num_regions):
+                            intersect, contain = Constants.intersect(
+                                gt_coordinate, bbox_feat[i, :4], True, 'x1y1x2y2')
+                            intersect_iou[idx][i] = intersect  # + self.contained_weight * contain
+
+                        # if self.distribution:
+                            #mask = (intersect_iou[idx] > self.cutoff).astype('float32')
+                            #intersect_iou[idx] *= mask
+                        intermediate_idx[idx] = intersect_iou[idx] / (intersect_iou[idx].sum() + 0.001)
+                        # else:
+                        #    intermediate_idx[idx] = (intersect_iou[idx] > self.cutoff).astype('float32')
+                        #    intermediate_idx[idx] = intermediate_idx[idx] / (intermediate_idx[idx].sum() + 0.001)
+
+        else:
+            intermediate_idx = 0
+
+        # Prepare index selection
+        index = length - 1
+        # Prepare answer
+        #answer_id = self.answer_vocab.get(entry[-1], Constants.UNK)
+        answer_id = self.answer_vocab.get(answerId, Constants.UNK)
+        
+        #print('Forbidden set size: {}'.format(len(self.forbidden)))
+        
+        return question, question_masks, program, program_masks, transition_masks, activate_mask, object_feat, \
+            bbox_feat, vis_mask, index, depth, intermediate_idx, answer_id, questionId
+    
 
 class BCEWithMask(nn.Module):
     def __init__(self, ignore_index):

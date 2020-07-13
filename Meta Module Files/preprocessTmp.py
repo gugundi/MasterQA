@@ -304,9 +304,9 @@ def preprocess(raw_data, output_path, formal=False):
         #     fail += 1
 
         if idx % 10000 == 0:
-            sys.stdout.write("finished {}/{} \r".format(success, fail))
+            sys.stdout.write("finished {}/{}, failed {} \r".format(success, len(keys), fail))
 
-    print("finished {}/{}".format(success, fail))
+    print("finished {}/{}, failed {}".format(success, len(keys), fail))
     with open(output_path, 'w') as f:
         json.dump(symbolic_programs, f, indent=2)
 
@@ -326,12 +326,13 @@ def create_inputs(splits, output):
         #    with open('questions/{}_programs_pred.json'.format(split)) as f:
         #        data = json.load(f)
         # else:
-        with open('../../processed/questions/{}_programs.json'.format(split)) as f:
+        with open('../processed/questions/{}_programs.json'.format(split)) as f:
             data = json.load(f)
-            print("loading {}".format('../../processed/questions/{}_programs.json'.format(split)))
+            print("loading {}".format('../processed/questions/{}_programs.json'.format(split)))
 
         count = 0
         skipped = 0
+        skipped_programs = 0
         for idx, entry in enumerate(data):
             imageId, question, programs, questionId = entry[:4]
             if idx == 0:
@@ -352,14 +353,21 @@ def create_inputs(splits, output):
             for i, program in enumerate(programs):
                 if len(program) == 0:
                     continue
+                
+                try:
+                    if isinstance(program, list):
+                        #print("It's a list!!!!!!!")
+                        _, func, args = Constants.parse_program(program[1])
+                        returns.append(program[0])
+                    else:
+                        result, func, args = Constants.parse_program(program)
+                        #results.append(result)
+                except TypeError:
+                    print("Skipped program due to value error: {}".format(program))
+                    skipped_programs += 1
+                    programs.remove(program)
+                    continue
                     
-                if isinstance(program, list):
-                    #print("It's a list!!!!!!!")
-                    _, func, args = Constants.parse_program(program[1])
-                    returns.append(program[0])
-                else:
-                    result, func, args = Constants.parse_program(program)
-                    #results.append(result)
                 try:
                     if func == 'relate' or func == 'relate_inv':
                         inputs.append([func, None, None, args[1], None, None, None, None])
@@ -419,7 +427,12 @@ def create_inputs(splits, output):
                             coreference = int(arg[1:-1])
                             # if coreference >= len(execution_buffer):
                             #   coreference = -1
-                            apis_ins.append(execution_buffer[coreference])
+                            try:
+                                apis_ins.append(execution_buffer[coreference])
+                            
+                            except IndexError:
+                                print("Index error on the following index: {}".format(coreference))
+                                print(execution_buffer)
                         else:
                             apis_ins.append(arg)
 
@@ -530,6 +543,7 @@ def create_inputs(splits, output):
             sys.stdout.write("finished {}/{}, skipped {} \r".format(idx, len(data), skipped))
             
         print("finished {}/{}, skipped {}".format(idx, len(data), skipped))
+        print("Skipped {} programs".format(skipped_programs))
 
     with open(output, 'w') as f:
         json.dump(results, f, indent=2)
@@ -539,86 +553,113 @@ arg = sys.argv[1]
 if arg == 'trainval_all':
     raw_data = {}
     start_time = time.time()
-    with open('../../dataset/questions/train_all_questions/train_all_questions_0.json') as f:
+    print("Loading train_all_questions_0")
+    with open('../dataset/questions/train_all_questions/train_all_questions_0.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_1.json') as f:
+    print("Loading train_all_questions_1")
+    with open('../dataset/questions/train_all_questions/train_all_questions_1.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_2.json') as f:
+    print("Loading train_all_questions_2")
+    with open('../dataset/questions/train_all_questions/train_all_questions_2.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_3.json') as f:
+    print("Loading train_all_questions_3")
+    with open('../dataset/questions/train_all_questions/train_all_questions_3.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_4.json') as f:
+    print("Loading train_all_questions_4")
+    with open('../dataset/questions/train_all_questions/train_all_questions_4.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_5.json') as f:
+    print("Loading train_all_questions_5")
+    with open('../dataset/questions/train_all_questions/train_all_questions_5.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_6.json') as f:
+    print("Loading train_all_questions_6")
+    with open('../dataset/questions/train_all_questions/train_all_questions_6.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_7.json') as f:
+    print("Loading train_all_questions_7")
+    with open('../dataset/questions/train_all_questions/train_all_questions_7.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_8.json') as f:
+    print("Loading train_all_questions_8")
+    with open('../dataset/questions/train_all_questions/train_all_questions_8.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/train_all_questions/train_all_questions_9.json') as f:
+    print("Loading train_all_questions_9")
+    with open('../dataset/questions/train_all_questions/train_all_questions_9.json') as f:
         raw_data.update(json.load(f))
-    with open('../../dataset/questions/val_all_questions.json') as f:
+    print("Loading val_all_questions")
+    with open('../dataset/questions/val_all_questions.json') as f:
         raw_data.update(json.load(f))
-    preprocess(raw_data, '../../processed/questions/trainval_all_programs.json')
+    preprocess(raw_data, '../processed/questions/trainval_all_programs.json')
 
 elif arg == 'create_balanced_programs':
-    with open('../../dataset/questions/train_balanced_questions.json') as f:
+    with open('../dataset/questions/train_balanced_questions.json') as f:
         raw_data = json.load(f)
-    with open('../../dataset/questions/val_balanced_questions.json') as f:
+    with open('../dataset/questions/val_balanced_questions.json') as f:
         raw_data.update(json.load(f))
-    preprocess(raw_data, '../../processed/questions/trainval_balanced_programs.json')
-    with open('../../dataset/questions/testdev_balanced_questions.json') as f:
+    preprocess(raw_data, '../processed/questions/trainval_balanced_programs.json')
+    with open('../dataset/questions/testdev_balanced_questions.json') as f:
         raw_dev_data = json.load(f)
-    preprocess(raw_dev_data, '../../dataset/questions/testdev_balanced_programs.json')
+    preprocess(raw_dev_data, '../dataset/questions/testdev_balanced_programs.json')
 
 elif arg == 'create_test_programs':
-    with open('../../dataset/questions/test_balanced_questions.json') as f:
+    with open('../dataset/questions/test_balanced_questions.json') as f:
         raw_data = json.load(f)
-    preprocess(raw_data, '../../processed/questions/test_balanced_programs.json')
-    with open('../../dataset/questions/test_all_questions.json') as f:
+    preprocess(raw_data, '../processed/questions/test_balanced_programs.json')
+    with open('../dataset/questions/test_all_questions.json') as f:
         raw_dev_data = json.load(f)
-    preprocess(raw_dev_data, '../../dataset/questions/test_all_programs.json')
+    preprocess(raw_dev_data, '../processed/questions/test_all_programs.json')
+    
+elif arg == 'create_submission_programs':
+    with open('../dataset/questions/submission_all_questions.json') as f:
+        raw_data = json.load(f)
+    preprocess(raw_data, '../processed/questions/needed_submission_questions.json')
 
 elif arg == 'create_all_inputs':
-    with open('../../dataset/scene_graphs/train_sceneGraphs.json') as f:
+    with open('../dataset/scene_graphs/train_sceneGraphs.json') as f:
         scene_graph = json.load(f)
-    with open('../../dataset/scene_graphs/val_sceneGraphs.json') as f:
+    with open('../dataset/scene_graphs/val_sceneGraphs.json') as f:
         scene_graph.update(json.load(f))
-    create_inputs(['trainval_all'], '../../processed/questions/trainval_all_inputs.json')
+    create_inputs(['trainval_all'], '../processed/questions/trainval_all_inputs.json')
 
 elif arg == 'create_balanced_inputs':
     # with open('../../processed/trainval_bounding_box.json') as f:
     #         scene_graph = json.load(f)
-    with open('../../dataset/scene_graphs/train_sceneGraphs.json') as f:
+    with open('../dataset/scene_graphs/train_sceneGraphs.json') as f:
         scene_graph = json.load(f)
-    with open('../../dataset/scene_graphs/val_sceneGraphs.json') as f:
+    with open('../dataset/scene_graphs/val_sceneGraphs.json') as f:
         scene_graph.update(json.load(f))
-    create_inputs(['trainval_balanced'], '../../processed/questions/trainval_balanced_inputs.json')
-    create_inputs(['testdev_balanced'], '../../processed/questions/testdev_balanced_inputs.json')
+    create_inputs(['trainval_balanced'], '../processed/questions/trainval_balanced_inputs.json')
+    create_inputs(['testdev_balanced'], '../processed/questions/testdev_balanced_inputs.json')
 
 elif arg == 'create_test_inputs':
-    create_inputs(['test_balanced'], '../../processed/questions/test_balanced_inputs.json')
-    create_inputs(['test_all'], '../../processed/questions/test_all_inputs.json')
+    create_inputs(['test_balanced'], '../processed/questions/test_balanced_inputs.json')
+    create_inputs(['test_all'], '../processed/questions/test_all_inputs.json')
 
 elif arg == 'create_calibrated_inputs':
-    create_inputs(['trainval_calibrated_fully'], '../../processed/questions/trainval_calibrated_fully_inputs.json')
+    create_inputs(['trainval_calibrated_fully'], '../processed/questions/trainval_calibrated_fully_inputs.json')
+    
+elif arg == 'create_calibrated_inputs':
+    create_inputs(['trainval_calibrated_fully'], '../processed/questions/trainval_calibrated_fully_inputs.json')
 
 elif arg == 'create_inputs':
     #create_inputs(['trainval_balanced'], 'questions/trainval_balanced_inputs.json')
-    create_inputs(['testdev_balanced'], '../../processed/questions/testdev_balanced_inputs.json')
-    create_inputs(['trainval_fully'], '../../processed/questions/trainval_fully_inputs.json')
+    create_inputs(['testdev_balanced'], '../processed/questions/testdev_balanced_inputs.json')
+    create_inputs(['trainval_fully'], '../processed/questions/trainval_fully_inputs.json')
 
 elif arg == 'create_pred_inputs':
-    create_inputs(['trainval_unbiased_fully'], '../../processed/questions/trainval_unbiased_fully_inputs.json')
-    create_inputs(['testdev_pred'], '../../processed/questions/testdev_pred_inputs.json')
+    #create_inputs(['trainval_unbiased_fully'], '../processed/questions/trainval_unbiased_fully_inputs.json')
+    with open('../dataset/scene_graphs/train_sceneGraphs.json') as f:
+        scene_graph = json.load(f)
+    with open('../dataset/scene_graphs/val_sceneGraphs.json') as f:
+        scene_graph.update(json.load(f))
+    #create_inputs(['trainval_unbiased_fully'], '../processed/questions/trainval_unbiased_fully_inputs.json')
+    #create_inputs(['trainval_unbiased'], '../processed/questions/trainval_unbiased_inputs.json')
+    create_inputs(['trainval_unbiased10K'], '../processed/questions/trainval_unbiased10K_inputs.json')
+    create_inputs(['trainval_unbiased100K'], '../processed/questions/trainval_unbiased100K_inputs.json')
+    #create_inputs(['testdev_pred'], '../processed/questions/testdev_pred_inputs.json')
 
 elif arg == 'submission_inputs':
-    create_inputs(['needed_submission', 'overlapped_submission'], '../../processed/questions/submission_inputs.json')
+    create_inputs(['needed_submission', 'overlapped_submission'], '../processed/questions/submission_inputs.json')
 
 elif arg == 'debug':
-    with open('../../processed/questions/needed_submission_programs.json') as f:
+    with open('../processed/questions/needed_submission_programs.json') as f:
         data = json.load(f)
     for entry in data:
         for sub_program in entry[2]:

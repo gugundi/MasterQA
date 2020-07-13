@@ -324,9 +324,9 @@ def create_inputs(splits, output):
         #    with open('questions/{}_programs_pred.json'.format(split)) as f:
         #        data = json.load(f)
         # else:
-        with open('../../processed/questions/{}_programs.json'.format(split)) as f:
+        with open('../processed/questions/{}_programs.json'.format(split)) as f:
             data = json.load(f)
-            print("loading {}".format('../../processed/questions/{}_programs.json'.format(split)))
+            print("loading {}".format('../processed/questions/{}_programs.json'.format(split)))
 
         count = 0
         for idx, entry in enumerate(data):
@@ -477,14 +477,14 @@ if arg == 'trainval_all':
     preprocess(raw_data, '../../processed/questions/trainval_all_programs.json')
 
 elif arg == 'create_balanced_programs':
-    with open('../../dataset/questions/train_balanced_questions.json') as f:
+    with open('../dataset/questions/train_balanced_questions.json') as f:
         raw_data = json.load(f)
-    with open('../../dataset/questions/val_balanced_questions.json') as f:
+    with open('../dataset/questions/val_balanced_questions.json') as f:
         raw_data.update(json.load(f))
-    preprocess(raw_data, '../../processed/questions/trainval_balanced_programs.json')
-    with open('../../dataset/questions/testdev_balanced_questions.json') as f:
+    preprocess(raw_data, '../processed/questions/trainval_balanced_programs.json')
+    with open('../dataset/questions/testdev_balanced_questions.json') as f:
         raw_dev_data = json.load(f)
-    preprocess(raw_dev_data, '../../dataset/questions/testdev_balanced_programs.json')
+    preprocess(raw_dev_data, '../processed/questions/testdev_balanced_programs.json')
 
 elif arg == 'create_test_programs':
     with open('../../dataset/questions/test_balanced_questions.json') as f:
@@ -497,6 +497,9 @@ elif arg == 'create_test_programs':
 elif arg == 'create_all_inputs':
     create_inputs(['trainval_all'], '../../processed/questions/trainval_all_inputs.json')
 
+elif arg == 'create_all_calibrated_inputs':
+    create_inputs(['trainval_all'], '../../processed/questions/trainval_all_inputs.json')
+    
 elif arg == 'create_balanced_inputs':
     create_inputs(['trainval_balanced'], '../../processed/questions/trainval_balanced_inputs.json')
     create_inputs(['testdev_balanced'], '../../processed/questions/testdev_balanced_inputs.json')
@@ -514,8 +517,9 @@ elif arg == 'create_inputs':
     create_inputs(['trainval_fully'], '../../processed/questions/trainval_fully_inputs.json')
 
 elif arg == 'create_pred_inputs':
-    create_inputs(['trainval_unbiased_fully'], '../../processed/questions/trainval_unbiased_fully_inputs.json')
-    create_inputs(['testdev_pred'], '../../processed/questions/testdev_pred_inputs.json')
+    #create_inputs(['trainval_unbiased_fully'], '../../processed/questions/trainval_unbiased_fully_inputs.json')
+    create_inputs(['trainval_unbiased'], '../processed/questions/trainval_unbiased_inputs.json')
+    create_inputs(['testdev_pred'], '../processed/questions/testdev_pred_inputs.json')
 
 elif arg == 'submission_inputs':
     create_inputs(['needed_submission', 'overlapped_submission'], '../../processed/questions/submission_inputs.json')

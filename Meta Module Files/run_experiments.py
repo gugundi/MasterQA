@@ -21,10 +21,17 @@ import glob
 import resource
 import itertools
 from torch.utils.tensorboard import SummaryWriter
+from multiprocessing import set_start_method
+
+#try:
+#    set_start_method('spawn')
+#except RuntimeError:
+#    pass
+#torch.multiprocessing.set_start_method('spawn')
 
 device = torch.device('cuda')
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-resource.setrlimit(resource.RLIMIT_NOFILE, (40000, rlimit[1]))
+resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
 
 
 def parse_opt():
@@ -81,7 +88,7 @@ def parse_opt():
     parser.add_argument('--dropout', type=float, default=0.1, help="whether to train or test the model")
     parser.add_argument('--distribution', default=False, action='store_true', help="whether to train or test the model")
     parser.add_argument('--load_from', type=str, default="", help="whether to train or test the model")
-    parser.add_argument('--output', type=str, default="/nobackup/s144454/models", help="whether to train or test the model")
+    parser.add_argument('--output', type=str, default="../../models", help="whether to train or test the model")
     parser.add_argument('--length', type=int, default=9, help="whether to train or test the model")
     parser.add_argument('--id', type=str, default="default", help="whether to train or test the model")
     parser.add_argument('--groundtruth', default=False, action="store_true", help="whether to train or test the model")
@@ -259,10 +266,15 @@ if __name__ == "__main__":
             print("using the all programs for bootstrapping")
         else:
             train_split = 'trainval_balanced'
+            #train_split = 'trainval_unbiased'
+            
             print("using the generated programs for training")
         testdev_split = 'testdev_balanced'
+        #testdev_split = 'testdev_pred'
 
         if args.do_finetune:
+            #train_split = 'trainval_unbiased'
+            #testdev_split = 'testdev_pred'
             if args.single:
                 model = nn.DataParallel(model)
 
@@ -315,6 +327,11 @@ if __name__ == "__main__":
                                    threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
             test_dataset = GQA_v4(split=testdev_split, mode='val', contained_weight=args.contained_weight,
                                   threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
+        elif args.gqa_loader == "v5":
+            train_dataset = GQA_v5(split=train_split, mode='train', contained_weight=args.contained_weight,
+                                   threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
+            test_dataset = GQA_v5(split=testdev_split, mode='val', contained_weight=args.contained_weight,
+                                  threshold=args.threshold, folder=args.data, cutoff=args.cutoff, **basic_kwargs)
         else:
             raise NotImplementedError
 
@@ -335,7 +352,8 @@ if __name__ == "__main__":
         KL_loss = KLDivergence()
         # KL_loss = KLDivLoss()
 
-        optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()), lr=args.lr_default)
+        #optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()), lr=args.lr_default)
+        optimizer = optim.SGD(filter(lambda x: x.requires_grad, model.parameters()), lr=args.lr_default)
 
         if args.resume != -1:
             filename = glob.glob('{}/{}/model_ep{}*'.format(args.output, args.id, args.resume))[0]
@@ -358,7 +376,7 @@ if __name__ == "__main__":
             success_train, total_train = 0, 0
             start_time = time.time()
             for i, batch in enumerate(train_dataloader):
-                len(train_dataloader)
+                #print(len(train_dataloader))
                 with autograd.detect_anomaly():
                     questionId = batch[-1]
                     batch = tuple(Variable(t).to(device) for t in batch[:-1])
@@ -399,32 +417,34 @@ if __name__ == "__main__":
                     if i % 10 == 0:
                         acc = round(success_train / (total_train + 0.), 4)
                         writer.add_scalar('Train/accuracy', acc, i + len(train_dataloader)*epoch)
+                        if i % 10000 == 0:
+                            torch.save(model.state_dict(), os.path.join(repo, 'model_ep_{}_{}'.format(epoch, acc)))
 
                     if i % 1 == 0:
                         print("epoch: {}, iteration {}/{}: module loss = {}, pred_loss = {} used time = {}".
                               format(epoch, i, len(train_dataloader), pre_loss.item(), pred_loss.item(), time.time() - start_time))
                         
-                    if i % 100 == 0:
-                        model.eval()
-                        eval_success, eval_total = 0, 0
-                        for j, eval_batch in enumerate(test_dataloader):
-                            eval_questionId = eval_batch[-1]
-                            eval_batch = tuple(Variable(t).to(device) for t in eval_batch[:-1])
-
-                            eval_results = model(*eval_batch[:-2])
-                            if isinstance(eval_results, tuple):
-                                eval_logits = eval_results[1]
-                            else:
-                                eval_logits = eval_results
-                            eval_preds = torch.argmax(eval_logits, -1)
-                            eval_success_or_not = (eval_preds == eval_batch[-1]).float()
-
-                            eval_success += torch.sum(eval_success_or_not).item()
-                            eval_total += eval_success_or_not.size(0)
-
-                        eval_acc = round(eval_success / (eval_total + 0.), 4)
-                        print("iteration {}, accuracy = {}".format(i / 100, eval_acc))
-                        writer.add_scalar('Validation/accuracy', eval_acc, (i + len(train_dataloader)*epoch) / 100)
+                    #if i % 100 == 0:
+                    #    model.eval()
+                    #    eval_success, eval_total = 0, 0
+                    #    for j, eval_batch in enumerate(test_dataloader):
+                    #        eval_questionId = eval_batch[-1]
+                    #        eval_batch = tuple(Variable(t).to(device) for t in eval_batch[:-1])
+#
+                    #        eval_results = model(*eval_batch[:-2])
+                    #        if isinstance(eval_results, tuple):
+                    #            eval_logits = eval_results[1]
+                    #        else:
+                    #            eval_logits = eval_results
+                    #        eval_preds = torch.argmax(eval_logits, -1)
+                    #        eval_success_or_not = (eval_preds == eval_batch[-1]).float()
+#
+                    #        eval_success += torch.sum(eval_success_or_not).item()
+                    #        eval_total += eval_success_or_not.size(0)
+#
+                    #    eval_acc = round(eval_success / (eval_total + 0.), 4)
+                    #    print("iteration {}, accuracy = {}".format(i / 100, eval_acc))
+                    #    writer.add_scalar('Validation/accuracy', eval_acc, (i + len(train_dataloader)*epoch) / 100)
                     
                     sys.stdout.flush()
                     start_time = time.time()
@@ -535,6 +555,10 @@ if __name__ == "__main__":
                                   **basic_kwargs)
         elif args.gqa_loader == 'v4':
             test_dataset = GQA_v4(split=split, mode='val', folder=args.data, cutoff=args.cutoff,
+                                  threshold=args.threshold, contained_weight=args.contained_weight,
+                                  **basic_kwargs)
+        elif args.gqa_loader == 'v5':
+            test_dataset = GQA_v5(split=split, mode='val', folder=args.data, cutoff=args.cutoff,
                                   threshold=args.threshold, contained_weight=args.contained_weight,
                                   **basic_kwargs)
 
